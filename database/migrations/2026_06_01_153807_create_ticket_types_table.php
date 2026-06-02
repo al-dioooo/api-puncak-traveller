@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('name');
             $table->unsignedInteger('price')->default(0);
             $table->unsignedInteger('quantity');
-            $table->rawColumn('sold', 'integer unsigned not null default 0 check (sold >= 0 and sold <= quantity)');
+            $table->rawColumn('sold', 'integer not null default 0 check (sold >= 0 and sold <= quantity)');
             $table->timestamps();
 
             $table->index(['event_id', 'name']);
