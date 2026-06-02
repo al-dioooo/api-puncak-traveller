@@ -10,28 +10,67 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['community_id', 'place_id', 'title', 'slug', 'description', 'activity_type', 'distance_label', 'starts_at', 'ends_at', 'cover_image'])]
+#[Fillable([
+    'community_id',
+    'place_id',
+    'public_id',
+    'title',
+    'slug',
+    'description',
+    'category',
+    'activity',
+    'activity_type',
+    'distance_label',
+    'elevation_label',
+    'difficulty',
+    'venue_name',
+    'venue_description',
+    'summary',
+    'includes',
+    'schedule',
+    'starts_at',
+    'ends_at',
+    'status_label',
+    'date_label',
+    'full_date_label',
+    'time_label',
+    'location',
+    'region',
+    'price_label',
+    'spots_label',
+    'cover_image',
+    'image_alt',
+    'detail_href',
+    'booking_href',
+    'recap_href',
+])]
 class Event extends Model
 {
     /** @use HasFactory<EventFactory> */
     use HasFactory;
 
-    public const ACTIVITY_TRAIL_RUN = 'trail_run';
+    public const ACTIVITY_TRAIL_RUN = 'trail-run';
 
-    public const ACTIVITY_HEALTHY_WALK = 'healthy_walk';
+    public const ACTIVITY_WALK = 'walk';
 
     public const ACTIVITY_CAMPING = 'camping';
 
+    public const ACTIVITY_HIKE = 'hike';
+
     public const ACTIVITY_WELLNESS = 'wellness';
+
+    public const ACTIVITY_FUN_RUN = 'fun-run';
 
     /**
      * @var array<string, string>
      */
     public const ACTIVITY_LABELS = [
         self::ACTIVITY_TRAIL_RUN => 'Trail Run',
-        self::ACTIVITY_HEALTHY_WALK => 'Healthy Walk',
+        self::ACTIVITY_WALK => 'Walk',
         self::ACTIVITY_CAMPING => 'Camping',
+        self::ACTIVITY_HIKE => 'Hike',
         self::ACTIVITY_WELLNESS => 'Wellness',
+        self::ACTIVITY_FUN_RUN => 'Fun Run',
     ];
 
     protected $attributes = [
@@ -68,12 +107,17 @@ class Event extends Model
         return $this->hasMany(Gallery::class);
     }
 
+    public function savedEvents(): HasMany
+    {
+        return $this->hasMany(SavedEvent::class);
+    }
+
     public function scopeForStatus(Builder $query, string $status): Builder
     {
         $now = now();
 
         return match ($status) {
-            'past' => $query->where('ends_at', '<', $now),
+            'past', 'completed' => $query->where('ends_at', '<', $now),
             'ongoing' => $query->where('starts_at', '<=', $now)->where('ends_at', '>=', $now),
             'upcoming' => $query->where('starts_at', '>', $now),
             default => $query,
@@ -82,7 +126,9 @@ class Event extends Model
 
     public function getActivityLabelAttribute(): string
     {
-        return self::ACTIVITY_LABELS[$this->activity_type] ?? str($this->activity_type)->replace('_', ' ')->title()->toString();
+        $activity = $this->activity ?? $this->activity_type;
+
+        return self::ACTIVITY_LABELS[$activity] ?? str($activity)->replace(['_', '-'], ' ')->title()->toString();
     }
 
     public function getStatusAttribute(): string
@@ -90,7 +136,7 @@ class Event extends Model
         $now = now();
 
         if ($this->ends_at->lt($now)) {
-            return 'past';
+            return 'completed';
         }
 
         if ($this->starts_at->gt($now)) {
@@ -108,6 +154,9 @@ class Event extends Model
         return [
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'summary' => 'array',
+            'includes' => 'array',
+            'schedule' => 'array',
         ];
     }
 }

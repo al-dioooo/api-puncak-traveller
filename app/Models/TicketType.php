@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['event_id', 'name', 'price', 'quantity', 'sold'])]
+#[Fillable(['event_id', 'public_id', 'name', 'description', 'price', 'currency', 'quantity', 'sold', 'capacity_label', 'max_per_user'])]
 class TicketType extends Model
 {
     /** @use HasFactory<TicketTypeFactory> */

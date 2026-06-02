@@ -24,8 +24,11 @@ class BookingFactory extends Factory
             'user_id' => User::factory(),
             'event_id' => Event::factory(),
             'reference' => 'PT-'.now()->format('Ymd').'-'.Str::upper(Str::random(8)),
-            'status' => Booking::STATUS_RESERVED,
+            'status' => Booking::STATUS_CONFIRMED,
+            'subtotal' => 0,
+            'booking_fee' => 0,
             'total' => 0,
+            'currency' => 'IDR',
             'idempotency_key' => (string) Str::uuid(),
         ];
     }

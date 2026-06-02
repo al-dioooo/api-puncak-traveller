@@ -15,11 +15,11 @@ class BookingItemResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
-            'ticket_type_id' => $this->ticket_type_id,
-            'quantity' => $this->quantity,
-            'unit_price' => $this->unit_price,
-            'ticket_type' => new TicketTypeResource($this->whenLoaded('ticketType')),
+            'ticketTierId' => $this->ticketType?->public_id ?? (string) $this->ticket_type_id,
+            'ticketName' => $this->ticketType?->name ?? 'Ticket',
+            'quantity' => (int) $this->quantity,
+            'unitPrice' => (int) $this->unit_price,
+            'lineTotal' => (int) $this->quantity * (int) $this->unit_price,
         ];
     }
 }

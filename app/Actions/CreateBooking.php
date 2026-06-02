@@ -8,63 +8,71 @@ use App\Models\TicketType;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class CreateBooking
 {
-    /**
-     * @param  array<int, array{ticket_type_id: int, quantity: int}>  $items
-     */
-    public function execute(User $user, Event $event, array $items, string $idempotencyKey): Booking
-    {
-        $existingBooking = Booking::query()
-            ->whereBelongsTo($user)
-            ->where('idempotency_key', $idempotencyKey)
-            ->with(['event', 'items.ticketType'])
-            ->first();
+    public const BOOKING_FEE = 5000;
 
-        if ($existingBooking !== null) {
-            return $existingBooking;
+    /**
+     * @param  array<int, array{ticket_tier_id: string, quantity: int}>  $items
+     * @param  array<int, array{name?: string, email?: string, ticketTierId?: string}>  $attendees
+     */
+    public function execute(User $user, Event $event, array $items, array $attendees = [], ?string $idempotencyKey = null): Booking
+    {
+        if ($idempotencyKey) {
+            $existingBooking = Booking::query()
+                ->whereBelongsTo($user)
+                ->where('idempotency_key', $idempotencyKey)
+                ->with(['event', 'items.ticketType'])
+                ->first();
+
+            if ($existingBooking !== null) {
+                return $existingBooking;
+            }
         }
 
-        return DB::transaction(function () use ($user, $event, $items, $idempotencyKey): Booking {
+        return DB::transaction(function () use ($user, $event, $items, $attendees, $idempotencyKey): Booking {
             $requestedItems = collect($items)
-                ->mapWithKeys(fn (array $item): array => [(int) $item['ticket_type_id'] => (int) $item['quantity']])
+                ->mapWithKeys(fn (array $item): array => [(string) $item['ticket_tier_id'] => (int) $item['quantity']])
                 ->sortKeys();
 
             $ticketTypes = TicketType::query()
                 ->whereBelongsTo($event)
-                ->whereIn('id', $requestedItems->keys())
+                ->whereIn('public_id', $requestedItems->keys())
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get()
-                ->keyBy('id');
+                ->keyBy('public_id');
 
             if ($ticketTypes->count() !== $requestedItems->count()) {
-                throw ValidationException::withMessages([
-                    'items' => 'One or more ticket types are not available for this event.',
-                ]);
+                throw new NotFoundHttpException('One or more ticket tiers are not available for this event.');
             }
 
+            $firstAttendee = $attendees[0] ?? [];
             $booking = Booking::query()->create([
                 'user_id' => $user->id,
                 'event_id' => $event->id,
                 'reference' => $this->makeReference(),
-                'status' => Booking::STATUS_RESERVED,
+                'status' => Booking::STATUS_CONFIRMED,
+                'attendee_name' => $firstAttendee['name'] ?? $user->name,
+                'attendee_email' => $firstAttendee['email'] ?? $user->email,
+                'subtotal' => 0,
+                'booking_fee' => self::BOOKING_FEE,
                 'total' => 0,
-                'idempotency_key' => $idempotencyKey,
+                'currency' => 'IDR',
+                'idempotency_key' => $idempotencyKey ?? (string) Str::uuid(),
             ]);
 
-            $total = 0;
+            $subtotal = 0;
 
-            foreach ($requestedItems as $ticketTypeId => $quantity) {
+            foreach ($requestedItems as $ticketTierId => $quantity) {
                 /** @var TicketType $ticketType */
-                $ticketType = $ticketTypes->get($ticketTypeId);
+                $ticketType = $ticketTypes->get($ticketTierId);
 
                 if ($ticketType->remaining < $quantity) {
-                    throw ValidationException::withMessages([
-                        'items' => "Only {$ticketType->remaining} {$ticketType->name} tickets remain.",
-                    ]);
+                    throw new ConflictHttpException("Only {$ticketType->remaining} {$ticketType->name} tickets remain.");
                 }
 
                 $updated = TicketType::query()
@@ -73,9 +81,7 @@ class CreateBooking
                     ->increment('sold', $quantity);
 
                 if ($updated === 0) {
-                    throw ValidationException::withMessages([
-                        'items' => "{$ticketType->name} is sold out.",
-                    ]);
+                    throw new ConflictHttpException("{$ticketType->name} is sold out.");
                 }
 
                 $booking->items()->create([
@@ -84,10 +90,14 @@ class CreateBooking
                     'unit_price' => $ticketType->price,
                 ]);
 
-                $total += $quantity * $ticketType->price;
+                $subtotal += $quantity * $ticketType->price;
             }
 
-            $booking->update(['total' => $total]);
+            $booking->update([
+                'subtotal' => $subtotal,
+                'booking_fee' => self::BOOKING_FEE,
+                'total' => $subtotal + self::BOOKING_FEE,
+            ]);
 
             return $booking->load(['event', 'items.ticketType']);
         });
@@ -95,6 +105,6 @@ class CreateBooking
 
     private function makeReference(): string
     {
-        return 'PT-'.now()->format('Ymd').'-'.Str::upper(Str::random(8));
+        return 'PTR-'.now()->format('y').'-'.Str::upper(Str::random(6));
     }
 }

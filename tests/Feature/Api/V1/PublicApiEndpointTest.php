@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api\V1;
 
 use App\Models\Community;
+use App\Models\ContactMethod;
 use App\Models\Event;
 use App\Models\Gallery;
 use App\Models\Place;
@@ -15,194 +16,192 @@ class PublicApiEndpointTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
-    protected function setUp(): void
+    public function test_events_index_matches_frontend_contract(): void
     {
-        parent::setUp();
-
-        config([
-            'app.url' => 'http://api-puncak-traveller.test',
-            'filesystems.disks.public.url' => 'http://api-puncak-traveller.test/storage',
-        ]);
-    }
-
-    public function test_public_clients_can_list_and_filter_events(): void
-    {
-        $community = Community::factory()->create(['slug' => 'puncak-runners']);
-        $place = Place::factory()->for($community)->create();
-        $upcomingEvent = Event::factory()->for($community)->for($place)->upcoming()->create([
+        $event = $this->createEventWithTicket([
+            'public_id' => 'evt_morning_run',
             'slug' => 'morning-run',
             'title' => 'Morning Run',
+            'activity' => Event::ACTIVITY_TRAIL_RUN,
             'activity_type' => Event::ACTIVITY_TRAIL_RUN,
-            'distance_label' => '10K',
-            'cover_image' => 'events/morning-run.jpg',
-        ]);
-        TicketType::factory()->for($upcomingEvent)->create(['price' => 125000]);
-        TicketType::factory()->for($upcomingEvent)->create(['price' => 95000]);
-        Event::factory()->for($community)->for($place)->past()->create([
-            'slug' => 'past-walk',
-            'title' => 'Past Walk',
+            'category' => 'Trail Run',
+            'cover_image' => '/events/morning-run.jpg',
+            'image_alt' => 'Trail runners at sunrise',
+            'location' => 'Gunung Pangrango, Bogor',
+            'region' => 'West Java',
+            'price_label' => 'From Rp 95K',
+            'spots_label' => '20 spots left',
+        ], [
+            'public_id' => 'general',
+            'price' => 95000,
+            'quantity' => 20,
+            'sold' => 0,
         ]);
 
-        $response = $this->getJson(route('api.v1.events.index', [
+        $this->getJson(route('api.v1.events.index', [
+            'activity' => 'trail-run',
+            'q' => 'Morning',
             'status' => 'upcoming',
-            'community' => 'puncak-runners',
-        ]));
-
-        $response
+        ]))
             ->assertOk()
-            ->assertJsonPath('data.0.id', $upcomingEvent->id)
-            ->assertJsonPath('data.0.status', 'upcoming')
-            ->assertJsonPath('data.0.community.slug', 'puncak-runners')
-            ->assertJsonPath('data.0.activity_type', Event::ACTIVITY_TRAIL_RUN)
-            ->assertJsonPath('data.0.activity_label', 'Trail Run')
-            ->assertJsonPath('data.0.distance_label', '10K')
-            ->assertJsonPath('data.0.starting_price', 95000)
-            ->assertJsonPath('data.0.cover_image', 'events/morning-run.jpg')
-            ->assertJsonPath('data.0.cover_image_url', 'http://api-puncak-traveller.test/storage/events/morning-run.jpg');
+            ->assertJsonPath('data.0.id', 'evt_morning_run')
+            ->assertJsonPath('data.0.slug', $event->slug)
+            ->assertJsonPath('data.0.activity', 'trail-run')
+            ->assertJsonPath('data.0.category', 'Trail Run')
+            ->assertJsonPath('data.0.priceFrom', 95000)
+            ->assertJsonPath('data.0.imageUrl', '/events/morning-run.jpg')
+            ->assertJsonPath('meta.page', 1)
+            ->assertJsonPath('meta.perPage', 12)
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_events_can_be_filtered_by_activity_search_and_status(): void
+    {
+        $this->createEventWithTicket([
+            'slug' => 'lakeside-camp-weekend',
+            'title' => 'Lakeside Camp Weekend',
+            'activity' => Event::ACTIVITY_CAMPING,
+            'activity_type' => Event::ACTIVITY_CAMPING,
+            'category' => 'Camping',
+            'starts_at' => now()->subMonth(),
+            'ends_at' => now()->subMonth()->addDays(2),
+        ]);
+        $this->createEventWithTicket([
+            'slug' => 'future-camp',
+            'title' => 'Future Camp',
+            'activity' => Event::ACTIVITY_CAMPING,
+            'activity_type' => Event::ACTIVITY_CAMPING,
+            'category' => 'Camping',
+        ]);
+
+        $this->getJson(route('api.v1.events.index', [
+            'activity' => 'camping',
+            'q' => 'lakeside',
+            'status' => 'completed',
+        ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Lakeside Camp Weekend');
+
+        $this->getJson(route('api.v1.events.index', ['activity' => 'invalid']))
+            ->assertUnprocessable();
     }
 
     public function test_public_clients_can_view_event_details_with_ticket_types(): void
     {
-        $event = Event::factory()->upcoming()->create([
+        $event = $this->createEventWithTicket([
+            'public_id' => 'evt_camp_fun_run',
             'slug' => 'camp-fun-run',
-            'cover_image' => 'events/camp-fun-run.jpg',
-        ]);
-        $ticketType = TicketType::factory()->for($event)->create([
+            'title' => 'Camp Fun Run',
+            'summary' => ['Run through camp trails.'],
+            'includes' => ['Race bib'],
+            'schedule' => [['time' => '06:00', 'title' => 'Flag-off']],
+        ], [
+            'public_id' => 'general',
             'name' => 'General Admission',
+            'description' => 'Standard participant access',
             'price' => 175000,
             'quantity' => 25,
             'sold' => 5,
+            'capacity_label' => '20 left',
         ]);
 
-        $response = $this->getJson(route('api.v1.events.show', $event));
-
-        $response
+        $this->getJson(route('api.v1.events.show', $event))
             ->assertOk()
+            ->assertJsonPath('data.id', 'evt_camp_fun_run')
             ->assertJsonPath('data.slug', 'camp-fun-run')
-            ->assertJsonPath('data.starting_price', 175000)
-            ->assertJsonPath('data.cover_image_url', 'http://api-puncak-traveller.test/storage/events/camp-fun-run.jpg')
-            ->assertJsonPath('data.ticket_types.0.id', $ticketType->id)
-            ->assertJsonPath('data.ticket_types.0.remaining', 20);
+            ->assertJsonPath('data.priceFrom', 175000)
+            ->assertJsonPath('data.tickets.0.id', 'general')
+            ->assertJsonPath('data.tickets.0.stock', 20)
+            ->assertJsonPath('data.schedule.0.title', 'Flag-off');
     }
 
-    public function test_public_clients_can_read_communities_places_and_galleries(): void
+    public function test_gallery_and_contact_methods_match_frontend_contracts(): void
     {
-        $community = Community::factory()->create([
-            'slug' => 'puncak-travellers',
-            'image_path' => 'communities/puncak-travellers.jpg',
-            'member_count' => 18000,
+        $community = Community::factory()->create(['slug' => 'puncak-runners']);
+        Gallery::factory()->for($community)->create([
+            'public_id' => 'bonfire-stargazing',
+            'title' => 'Bonfire & stargazing',
+            'event_label' => 'Highland Camp',
+            'category' => 'camping',
+            'year' => '2026',
+            'image_path' => '/gallery/bonfire-stargazing.jpg',
+            'image_alt' => 'Campers gathering near a warm highland bonfire',
         ]);
-        $child = Community::factory()->for($community, 'parent')->create(['slug' => 'puncak-runners']);
-        $place = Place::factory()->for($community)->create();
-        $gallery = Gallery::factory()->for($community)->create([
-            'event_id' => null,
-            'image_path' => 'galleries/morning-climb.jpg',
+        Gallery::factory()->for($community)->create(['category' => 'hike']);
+        ContactMethod::factory()->create([
+            'title' => 'Email us',
+            'value' => 'halo@puncaktravellers.id',
+            'description' => 'For event questions, partnerships, and media.',
+            'sort_order' => 1,
         ]);
 
-        $this->getJson(route('api.v1.communities.index'))
+        $this->getJson(route('api.v1.galleries.index', ['category' => 'camping']))
             ->assertOk()
-            ->assertJsonPath('data.0.slug', 'puncak-travellers')
-            ->assertJsonPath('data.0.image_path', 'communities/puncak-travellers.jpg')
-            ->assertJsonPath('data.0.image_url', 'http://api-puncak-traveller.test/storage/communities/puncak-travellers.jpg')
-            ->assertJsonPath('data.0.member_count', 18000)
-            ->assertJsonPath('data.0.children.0.id', $child->id);
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', 'bonfire-stargazing')
+            ->assertJsonPath('data.0.imageUrl', '/gallery/bonfire-stargazing.jpg')
+            ->assertJsonPath('meta.total', 1);
 
-        $this->getJson(route('api.v1.places.index', ['community' => 'puncak-travellers']))
+        $this->getJson(route('api.v1.contact-methods.index'))
             ->assertOk()
-            ->assertJsonPath('data.0.id', $place->id);
-
-        $this->getJson(route('api.v1.galleries.index', ['community' => 'puncak-travellers']))
-            ->assertOk()
-            ->assertJsonPath('data.0.id', $gallery->id)
-            ->assertJsonPath('data.0.image_path', 'galleries/morning-climb.jpg')
-            ->assertJsonPath('data.0.image_url', 'http://api-puncak-traveller.test/storage/galleries/morning-climb.jpg');
-    }
-
-    public function test_public_clients_can_read_empty_landing_payload(): void
-    {
-        $response = $this->getJson(route('api.v1.landing'));
-
-        $response
-            ->assertOk()
-            ->assertJsonPath('data.hero_stats.0.label', 'Active members')
-            ->assertJsonPath('data.hero_stats.0.value', 0)
-            ->assertJsonPath('data.upcoming_events', [])
-            ->assertJsonPath('data.activities.0.activity_type', Event::ACTIVITY_TRAIL_RUN)
-            ->assertJsonPath('data.activities.0.upcoming_count', 0)
-            ->assertJsonPath('data.live_event', null)
-            ->assertJsonPath('data.communities', [])
-            ->assertJsonPath('data.gallery', []);
+            ->assertJsonPath('data.0.title', 'Email us')
+            ->assertJsonPath('data.0.value', 'halo@puncaktravellers.id');
     }
 
     public function test_public_clients_can_read_populated_landing_payload(): void
     {
         User::factory()->count(2)->create(['role' => User::ROLE_MEMBER]);
-        $community = Community::factory()->create(['slug' => 'puncak-travellers']);
-        $childCommunity = Community::factory()->for($community, 'parent')->create([
-            'name' => 'Puncak Runners',
-            'slug' => 'puncak-runners',
-            'image_path' => 'communities/puncak-runners.jpg',
-            'member_count' => 3200,
-        ]);
-        $place = Place::factory()->for($childCommunity, 'community')->create(['name' => 'Gunung Pangrango']);
-        $upcomingEvent = Event::factory()->for($childCommunity, 'community')->for($place)->upcoming()->create([
+        $event = $this->createEventWithTicket([
             'title' => 'Puncak Trail Run',
             'slug' => 'puncak-trail-run',
+            'activity' => Event::ACTIVITY_TRAIL_RUN,
             'activity_type' => Event::ACTIVITY_TRAIL_RUN,
-            'distance_label' => '15K',
-            'cover_image' => 'events/puncak-trail-run.jpg',
+            'category' => 'Trail Run',
+            'cover_image' => '/events/puncak-trail-run.jpg',
+        ], [
+            'price' => 185000,
         ]);
-        TicketType::factory()->for($upcomingEvent)->create(['price' => 185000]);
-        $liveEvent = Event::factory()->for($childCommunity, 'community')->for($place)->ongoing()->create([
-            'title' => 'Forest Fun Run',
-            'slug' => 'forest-fun-run',
-            'activity_type' => Event::ACTIVITY_HEALTHY_WALK,
-            'distance_label' => '10K',
-        ]);
-        Gallery::factory()->for($childCommunity, 'community')->for($upcomingEvent)->create([
-            'image_path' => 'galleries/puncak-trail-run.jpg',
-            'caption' => 'Morning climb',
+        Gallery::factory()->create([
+            'event_id' => $event->id,
+            'category' => 'trail-run',
+            'image_path' => '/galleries/puncak-trail-run.jpg',
         ]);
 
-        $response = $this->getJson(route('api.v1.landing'));
-
-        $response
+        $this->getJson(route('api.v1.landing'))
             ->assertOk()
             ->assertJsonPath('data.hero_stats.0.value', 2)
             ->assertJsonPath('data.upcoming_events.0.slug', 'puncak-trail-run')
-            ->assertJsonPath('data.upcoming_events.0.starting_price', 185000)
-            ->assertJsonPath('data.upcoming_events.0.cover_image_url', 'http://api-puncak-traveller.test/storage/events/puncak-trail-run.jpg')
-            ->assertJsonPath('data.activities.0.activity_type', Event::ACTIVITY_TRAIL_RUN)
-            ->assertJsonPath('data.activities.0.upcoming_count', 1)
-            ->assertJsonPath('data.live_event.slug', 'forest-fun-run')
-            ->assertJsonPath('data.live_event.distance_label', '10K')
-            ->assertJsonPath('data.communities.0.slug', 'puncak-runners')
-            ->assertJsonPath('data.communities.0.image_url', 'http://api-puncak-traveller.test/storage/communities/puncak-runners.jpg')
-            ->assertJsonPath('data.gallery.0.caption', 'Morning climb')
-            ->assertJsonPath('data.gallery.0.image_url', 'http://api-puncak-traveller.test/storage/galleries/puncak-trail-run.jpg');
+            ->assertJsonPath('data.upcoming_events.0.priceFrom', 185000)
+            ->assertJsonPath('data.activities.0.activity_type', Event::ACTIVITY_TRAIL_RUN);
     }
 
-    public function test_public_clients_can_submit_contact_messages(): void
+    /**
+     * @param  array<string, mixed>  $eventAttributes
+     * @param  array<string, mixed>  $ticketAttributes
+     */
+    private function createEventWithTicket(array $eventAttributes = [], array $ticketAttributes = []): Event
     {
-        $response = $this->postJson(route('api.v1.contact.store'), [
-            'name' => 'Alice Example',
-            'email' => 'alice@example.com',
-            'message' => 'I want to know more about the next event.',
-        ]);
+        $community = Community::factory()->create(['slug' => fake()->unique()->slug()]);
+        $place = Place::factory()->for($community)->create();
+        $event = Event::factory()
+            ->for($community)
+            ->for($place)
+            ->upcoming()
+            ->create($eventAttributes);
 
-        $response
-            ->assertCreated()
-            ->assertJsonPath('data.status', 'received');
-    }
+        TicketType::factory()
+            ->for($event)
+            ->create(array_merge([
+                'public_id' => 'general',
+                'name' => 'General Admission',
+                'description' => 'Standard participant access',
+                'price' => 95000,
+                'quantity' => 10,
+                'sold' => 0,
+                'currency' => 'IDR',
+            ], $ticketAttributes));
 
-    public function test_contact_message_requires_valid_payload(): void
-    {
-        $response = $this->postJson(route('api.v1.contact.store'), [
-            'name' => '',
-            'email' => 'invalid',
-            'message' => '',
-        ]);
-
-        $response->assertUnprocessable();
+        return $event;
     }
 }

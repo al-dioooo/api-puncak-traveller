@@ -15,13 +15,15 @@ class TicketTypeResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
-            'event_id' => $this->event_id,
+            'id' => $this->public_id ?? (string) $this->id,
+            'eventId' => $this->event?->public_id ?? (string) $this->event_id,
             'name' => $this->name,
-            'price' => $this->price,
-            'quantity' => $this->quantity,
-            'sold' => $this->sold,
-            'remaining' => $this->remaining,
+            'description' => $this->description ?? 'Standard participant access',
+            'price' => (int) $this->price,
+            'currency' => $this->currency ?? 'IDR',
+            'stock' => $this->remaining,
+            'capacityLabel' => $this->capacity_label ?? ($this->remaining > 0 ? "{$this->remaining} left" : 'Sold out'),
+            'maxPerUser' => $this->when($this->max_per_user !== null, $this->max_per_user),
         ];
     }
 }

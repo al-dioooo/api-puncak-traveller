@@ -13,8 +13,9 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'role', 'google_id', 'avatar', 'password'])]
+#[Fillable(['name', 'email', 'role', 'google_id', 'avatar', 'location', 'crew', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
@@ -23,7 +24,7 @@ class User extends Authenticatable implements PasskeyUser
     public const ROLE_ADMIN = 'admin';
 
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+    use HasApiTokens, HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
     protected $attributes = [
         'role' => self::ROLE_MEMBER,
@@ -32,6 +33,11 @@ class User extends Authenticatable implements PasskeyUser
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function savedEvents(): HasMany
+    {
+        return $this->hasMany(SavedEvent::class);
     }
 
     /**

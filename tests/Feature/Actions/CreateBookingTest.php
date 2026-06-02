@@ -25,11 +25,11 @@ class CreateBookingTest extends TestCase
         $action = app(CreateBooking::class);
 
         $firstBooking = $action->execute($user, $event, [
-            ['ticket_type_id' => $ticketType->id, 'quantity' => 2],
-        ], 'retry-key-001');
+            ['ticket_tier_id' => $ticketType->public_id, 'quantity' => 2],
+        ], [], 'retry-key-001');
         $secondBooking = $action->execute($user, $event, [
-            ['ticket_type_id' => $ticketType->id, 'quantity' => 2],
-        ], 'retry-key-001');
+            ['ticket_tier_id' => $ticketType->public_id, 'quantity' => 2],
+        ], [], 'retry-key-001');
 
         $this->assertTrue($firstBooking->is($secondBooking));
         $this->assertSame(2, $ticketType->refresh()->sold);
@@ -48,7 +48,7 @@ class CreateBookingTest extends TestCase
         $this->expectExceptionMessage('Only 1');
 
         $action->execute($user, $event, [
-            ['ticket_type_id' => $ticketType->id, 'quantity' => 2],
-        ], 'oversell-key-001');
+            ['ticket_tier_id' => $ticketType->public_id, 'quantity' => 2],
+        ], [], 'oversell-key-001');
     }
 }

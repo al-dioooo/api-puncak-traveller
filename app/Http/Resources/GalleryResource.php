@@ -16,14 +16,13 @@ class GalleryResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
-            'community_id' => $this->community_id,
-            'event_id' => $this->event_id,
-            'image_path' => $this->image_path,
-            'image_url' => $this->publicImageUrl($this->image_path),
-            'caption' => $this->caption,
-            'community' => new CommunityResource($this->whenLoaded('community')),
-            'event' => new EventResource($this->whenLoaded('event')),
+            'id' => $this->public_id ?? (string) $this->id,
+            'title' => $this->title ?? $this->caption ?? 'Puncak Travellers moment',
+            'event' => $this->event_label ?? $this->event?->title ?? 'Puncak Travellers',
+            'category' => $this->category ?? $this->event?->activity ?? 'trail-run',
+            'year' => $this->year ?? $this->created_at?->format('Y') ?? '2026',
+            'imageUrl' => $this->publicImageUrl($this->image_path),
+            'imageAlt' => $this->image_alt ?? $this->caption ?? 'Puncak Travellers gallery moment',
         ];
     }
 
@@ -31,6 +30,10 @@ class GalleryResource extends JsonResource
     {
         if (! $path) {
             return null;
+        }
+
+        if (str_starts_with($path, '/')) {
+            return $path;
         }
 
         return Storage::disk('public')->url($path);

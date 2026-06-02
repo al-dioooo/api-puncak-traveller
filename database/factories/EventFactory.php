@@ -29,6 +29,8 @@ class EventFactory extends Factory
             'title' => $title,
             'slug' => Str::slug($title).'-'.fake()->unique()->numberBetween(1000, 9999),
             'description' => fake()->paragraphs(2, true),
+            'category' => fake()->randomElement(Event::ACTIVITY_LABELS),
+            'activity' => fake()->randomElement(array_keys(Event::ACTIVITY_LABELS)),
             'activity_type' => fake()->randomElement(array_keys(Event::ACTIVITY_LABELS)),
             'distance_label' => fake()->randomElement(['5K', '10K', '15K', 'Weekend Camp', 'Half Day']),
             'starts_at' => $startsAt,

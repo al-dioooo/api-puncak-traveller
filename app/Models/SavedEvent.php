@@ -2,21 +2,21 @@
 
 namespace App\Models;
 
-use Database\Factories\GalleryFactory;
+use Database\Factories\SavedEventFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['community_id', 'event_id', 'public_id', 'title', 'event_label', 'category', 'year', 'image_path', 'image_alt', 'caption'])]
-class Gallery extends Model
+#[Fillable(['user_id', 'event_id'])]
+class SavedEvent extends Model
 {
-    /** @use HasFactory<GalleryFactory> */
+    /** @use HasFactory<SavedEventFactory> */
     use HasFactory;
 
-    public function community(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Community::class);
+        return $this->belongsTo(User::class);
     }
 
     public function event(): BelongsTo
