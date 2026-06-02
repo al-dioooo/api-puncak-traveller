@@ -17,6 +17,7 @@ class EventController extends Controller
         return EventResource::collection(
             Event::query()
                 ->with(['community', 'place'])
+                ->withMin('ticketTypes as starting_price', 'price')
                 ->when($request->string('status')->isNotEmpty(), fn ($query) => $query->forStatus($request->string('status')->toString()))
                 ->when($request->string('community')->isNotEmpty(), fn ($query) => $query->whereHas('community', fn ($community) => $community->where('slug', $request->string('community')->toString())))
                 ->latest('starts_at')
@@ -26,6 +27,6 @@ class EventController extends Controller
 
     public function show(Event $event): EventResource
     {
-        return new EventResource($event->load(['community', 'place', 'ticketTypes']));
+        return new EventResource($event->load(['community', 'place', 'ticketTypes'])->loadMin('ticketTypes as starting_price', 'price'));
     }
 }

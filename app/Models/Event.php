@@ -10,11 +10,33 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['community_id', 'place_id', 'title', 'slug', 'description', 'starts_at', 'ends_at', 'cover_image'])]
+#[Fillable(['community_id', 'place_id', 'title', 'slug', 'description', 'activity_type', 'distance_label', 'starts_at', 'ends_at', 'cover_image'])]
 class Event extends Model
 {
     /** @use HasFactory<EventFactory> */
     use HasFactory;
+
+    public const ACTIVITY_TRAIL_RUN = 'trail_run';
+
+    public const ACTIVITY_HEALTHY_WALK = 'healthy_walk';
+
+    public const ACTIVITY_CAMPING = 'camping';
+
+    public const ACTIVITY_WELLNESS = 'wellness';
+
+    /**
+     * @var array<string, string>
+     */
+    public const ACTIVITY_LABELS = [
+        self::ACTIVITY_TRAIL_RUN => 'Trail Run',
+        self::ACTIVITY_HEALTHY_WALK => 'Healthy Walk',
+        self::ACTIVITY_CAMPING => 'Camping',
+        self::ACTIVITY_WELLNESS => 'Wellness',
+    ];
+
+    protected $attributes = [
+        'activity_type' => self::ACTIVITY_TRAIL_RUN,
+    ];
 
     public function getRouteKeyName(): string
     {
@@ -56,6 +78,11 @@ class Event extends Model
             'upcoming' => $query->where('starts_at', '>', $now),
             default => $query,
         };
+    }
+
+    public function getActivityLabelAttribute(): string
+    {
+        return self::ACTIVITY_LABELS[$this->activity_type] ?? str($this->activity_type)->replace('_', ' ')->title()->toString();
     }
 
     public function getStatusAttribute(): string

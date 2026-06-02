@@ -25,6 +25,8 @@ class CommunityFactory extends Factory
             'name' => Str::title($name),
             'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(1000, 9999),
             'description' => fake()->paragraph(),
+            'image_path' => 'communities/'.fake()->uuid().'.jpg',
+            'member_count' => fake()->numberBetween(50, 5000),
         ];
     }
 }

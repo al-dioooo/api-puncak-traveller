@@ -16,7 +16,12 @@ class GalleryController extends Controller
 
         return GalleryResource::collection(
             Gallery::query()
-                ->with(['community', 'event'])
+                ->with([
+                    'community',
+                    'event' => fn ($query) => $query
+                        ->with(['community', 'place'])
+                        ->withMin('ticketTypes as starting_price', 'price'),
+                ])
                 ->when($request->string('community')->isNotEmpty(), fn ($query) => $query->whereHas('community', fn ($community) => $community->where('slug', $request->string('community')->toString())))
                 ->when($request->string('event')->isNotEmpty(), fn ($query) => $query->whereHas('event', fn ($event) => $event->where('slug', $request->string('event')->toString())))
                 ->latest()
@@ -26,6 +31,11 @@ class GalleryController extends Controller
 
     public function show(Gallery $gallery): GalleryResource
     {
-        return new GalleryResource($gallery->load(['community', 'event']));
+        return new GalleryResource($gallery->load([
+            'community',
+            'event' => fn ($query) => $query
+                ->with(['community', 'place'])
+                ->withMin('ticketTypes as starting_price', 'price'),
+        ]));
     }
 }

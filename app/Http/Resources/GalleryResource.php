@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class GalleryResource extends JsonResource
 {
@@ -19,9 +20,19 @@ class GalleryResource extends JsonResource
             'community_id' => $this->community_id,
             'event_id' => $this->event_id,
             'image_path' => $this->image_path,
+            'image_url' => $this->publicImageUrl($this->image_path),
             'caption' => $this->caption,
             'community' => new CommunityResource($this->whenLoaded('community')),
             'event' => new EventResource($this->whenLoaded('event')),
         ];
+    }
+
+    private function publicImageUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($path);
     }
 }

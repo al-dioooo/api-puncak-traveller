@@ -10,6 +10,7 @@ servers:
     description: Local development fallback
 tags:
   - name: Health
+  - name: Landing
   - name: Communities
   - name: Events
   - name: Places
@@ -30,6 +31,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+  /api/v1/landing:
+    get:
+      tags: [Landing]
+      operationId: getLandingPage
+      summary: Get landing page content and metrics.
+      responses:
+        "200":
+          description: Landing page payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LandingResponse"
   /api/v1/communities:
     get:
       tags: [Communities]
@@ -487,9 +500,65 @@ components:
           type: [integer, "null"]
         total:
           type: integer
+    LandingResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [hero_stats, upcoming_events, activities, live_event, communities, gallery]
+          properties:
+            hero_stats:
+              type: array
+              items:
+                $ref: "#/components/schemas/LandingStat"
+            upcoming_events:
+              type: array
+              items:
+                $ref: "#/components/schemas/EventSummary"
+            activities:
+              type: array
+              items:
+                $ref: "#/components/schemas/LandingActivity"
+            live_event:
+              anyOf:
+                - $ref: "#/components/schemas/EventSummary"
+                - type: "null"
+            communities:
+              type: array
+              items:
+                $ref: "#/components/schemas/Community"
+            gallery:
+              type: array
+              items:
+                $ref: "#/components/schemas/Gallery"
+    LandingStat:
+      type: object
+      required: [label, value]
+      properties:
+        label:
+          type: string
+          example: Active members
+        value:
+          type: integer
+          minimum: 0
+          example: 18000
+    LandingActivity:
+      type: object
+      required: [activity_type, activity_label, upcoming_count]
+      properties:
+        activity_type:
+          type: string
+          enum: [trail_run, healthy_walk, camping, wellness]
+        activity_label:
+          type: string
+          example: Trail Run
+        upcoming_count:
+          type: integer
+          minimum: 0
     Community:
       type: object
-      required: [id, parent_id, name, slug, description, children]
+      required: [id, parent_id, name, slug, description, image_path, image_url, member_count, children]
       properties:
         id:
           type: integer
@@ -501,6 +570,16 @@ components:
           type: string
         description:
           type: [string, "null"]
+        image_path:
+          type: [string, "null"]
+          example: communities/puncak-runners.jpg
+        image_url:
+          type: [string, "null"]
+          format: uri
+          example: http://api-puncak-traveller.test/storage/communities/puncak-runners.jpg
+        member_count:
+          type: integer
+          minimum: 0
         children:
           type: array
           items:
@@ -549,7 +628,7 @@ components:
           minimum: 0
     EventSummary:
       type: object
-      required: [id, community_id, place_id, title, slug, description, status, starts_at, ends_at, cover_image]
+      required: [id, community_id, place_id, title, slug, description, activity_type, activity_label, distance_label, status, starts_at, ends_at, starting_price, cover_image, cover_image_url]
       properties:
         id:
           type: integer
@@ -563,6 +642,15 @@ components:
           type: string
         description:
           type: [string, "null"]
+        activity_type:
+          type: string
+          enum: [trail_run, healthy_walk, camping, wellness]
+        activity_label:
+          type: string
+          example: Trail Run
+        distance_label:
+          type: [string, "null"]
+          example: 10K
         status:
           type: string
           enum: [past, ongoing, upcoming]
@@ -572,8 +660,19 @@ components:
         ends_at:
           type: string
           format: date-time
+        starting_price:
+          type: [integer, "null"]
+          minimum: 0
         cover_image:
           type: [string, "null"]
+          example: events/puncak-trail-run.jpg
+        cover_image_url:
+          type: [string, "null"]
+          format: uri
+          example: http://api-puncak-traveller.test/storage/events/puncak-trail-run.jpg
+        participant_count:
+          type: integer
+          minimum: 0
         community:
           $ref: "#/components/schemas/Community"
         place:
@@ -590,7 +689,7 @@ components:
                 $ref: "#/components/schemas/TicketType"
     Gallery:
       type: object
-      required: [id, community_id, event_id, image_path, caption]
+      required: [id, community_id, event_id, image_path, image_url, caption]
       properties:
         id:
           type: integer
@@ -600,6 +699,11 @@ components:
           type: [integer, "null"]
         image_path:
           type: string
+          example: galleries/morning-climb.jpg
+        image_url:
+          type: string
+          format: uri
+          example: http://api-puncak-traveller.test/storage/galleries/morning-climb.jpg
         caption:
           type: [string, "null"]
         community:
