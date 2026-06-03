@@ -34,6 +34,10 @@ class CommunityResource extends JsonResource
             return null;
         }
 
+        if (str_starts_with($path, '/')) {
+            return $path;
+        }
+
         return Storage::disk('public')->url($path);
     }
 }

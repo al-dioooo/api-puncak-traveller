@@ -118,6 +118,46 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/EventSummary"
+    post:
+      tags: [Events]
+      operationId: createAdminEvent
+      summary: Create an event as an administrator.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, slug, category, activity, description, starts_at, ends_at, location, status]
+              properties:
+                title: { type: string }
+                slug: { type: string }
+                category: { type: string }
+                activity: { type: string, enum: [trail-run, walk, camping, hike, wellness, fun-run] }
+                description: { type: string }
+                starts_at: { type: string, format: date-time }
+                ends_at: { type: string, format: date-time }
+                location: { type: string }
+                status: { type: string, enum: [draft, published, archived] }
+                tickets:
+                  type: array
+                  items:
+                    type: object
+                    required: [name, price, stock]
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                      price: { type: integer }
+                      stock: { type: integer }
+      responses:
+        "201":
+          description: Event created.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
   /api/v1/events/{event}:
     get:
       tags: [Events]
@@ -138,6 +178,38 @@ paths:
                     $ref: "#/components/schemas/EventDetail"
         "404":
           $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Events]
+      operationId: updateAdminEvent
+      summary: Update an event as an administrator.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EventSlug"
+      responses:
+        "200":
+          description: Event updated.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Ticket inventory or booking history conflict.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [Events]
+      operationId: deleteAdminEvent
+      summary: Delete an event with no booking history as an administrator.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EventSlug"
+      responses:
+        "204":
+          description: Event deleted.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Event has booking history.
   /api/v1/places:
     get:
       tags: [Places]
@@ -218,6 +290,57 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/Gallery"
+    post:
+      tags: [Galleries]
+      operationId: uploadAdminGalleryPhoto
+      summary: Upload a gallery photo as an administrator.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image, title, category]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: PNG, JPG, JPEG, or WebP image up to 5 MB.
+                title: { type: string }
+                event_id: { type: string }
+                category: { type: string, enum: [trail-run, walk, camping, hike, wellness, fun-run] }
+      responses:
+        "201":
+          description: Gallery photo uploaded.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/galleries/bulk-delete:
+    post:
+      tags: [Galleries]
+      operationId: bulkDeleteAdminGalleryPhotos
+      summary: Bulk delete gallery photos by public slug as an administrator.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Delete counts returned.
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/galleries/{gallery}:
     get:
       tags: [Galleries]
@@ -238,6 +361,19 @@ paths:
                     $ref: "#/components/schemas/Gallery"
         "404":
           $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Galleries]
+      operationId: deleteAdminGalleryPhoto
+      summary: Delete one gallery photo by public slug as an administrator.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GalleryId"
+      responses:
+        "204":
+          description: Gallery photo deleted.
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/contact:
     post:
       tags: [Contact]
@@ -325,6 +461,22 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/bookings/{booking}/refund:
+    post:
+      tags: [Bookings]
+      operationId: refundAdminBooking
+      summary: Refund a booking as an administrator.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: Booking refunded or already refunded.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Booking cannot be refunded from its current status.
   /api/v1/events/{event}/bookings:
     post:
       tags: [Bookings]
@@ -432,6 +584,14 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
           example:
             message: Not Found
+    Forbidden:
+      description: Administrator access is required.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            message: Unauthorized. Administrator access required.
     ValidationError:
       description: Validation failed.
       content:

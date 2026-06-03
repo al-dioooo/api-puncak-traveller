@@ -38,6 +38,6 @@ class GalleryResource extends JsonResource
             return $path;
         }
 
-        return Storage::disk('public')->url($path);
+        return url(Storage::disk('public')->url($path));
     }
 }

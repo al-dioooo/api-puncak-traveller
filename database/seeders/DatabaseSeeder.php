@@ -15,6 +15,7 @@ use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class DatabaseSeeder extends Seeder
 {
@@ -172,18 +173,27 @@ class DatabaseSeeder extends Seeder
         }
 
         $galleryItems = [
-            ['summit-push', 'Summit push at dawn', 'Misty Ridge Hike', 'hike', '2026', '/gallery/summit-push-at-dawn.jpg', 'Hikers moving toward a summit at dawn'],
-            ['pack-rolls-out', 'The 21K pack rolls out', 'Half Marathon', 'trail-run', '2026', '/gallery/pack-rolls-out.jpg', 'A pack of runners beginning a mountain race'],
-            ['tea-switchbacks', 'Tea-plantation switchbacks', 'Trail Run 2026', 'trail-run', '2026', '/gallery/tea-plantation-switchbacks.jpg', 'Trail runners moving along highland switchbacks'],
-            ['bonfire-stargazing', 'Bonfire & stargazing', 'Highland Camp', 'camping', '2026', '/gallery/bonfire-stargazing.jpg', 'Campers gathering near a warm highland bonfire'],
-            ['cool-down', 'Cool-down at the falls', 'Forest Fun Run', 'trail-run', '2026', '/gallery/cool-down-waterfall.jpg', 'A forest trail scene used for a post-run cool-down moment'],
-            ['sunrise-yoga', 'Sunrise mountain yoga', 'Mindful Mountain', 'wellness', '2026', '/gallery/sunrise-yoga.jpg', 'A calm sunrise mountain view for a wellness event'],
-            ['walking-crew', 'Walking crew, all paces', 'Healthy Walk', 'walk', '2025', '/gallery/walking-crew.jpg', 'A walking community following a green highland path'],
-            ['lakeside-morning', 'Lakeside camp morning', 'Situ Patenggang', 'camping', '2025', '/gallery/lakeside-camp-morning.jpg', 'Morning light over a highland camping area'],
-            ['meadow-rest', 'Meadow rest stop', 'Papandayan Hike', 'hike', '2025', '/gallery/meadow-rest-stop.jpg', 'Friends resting in a highland meadow during a hike'],
+            ['summit-push', 'Summit push at dawn', 'Misty Ridge Hike', 'hike', '2026', 'summit-push-at-dawn.jpg', 'Hikers moving toward a summit at dawn'],
+            ['pack-rolls-out', 'The 21K pack rolls out', 'Half Marathon', 'trail-run', '2026', 'pack-rolls-out.jpg', 'A pack of runners beginning a mountain race'],
+            ['tea-switchbacks', 'Tea-plantation switchbacks', 'Trail Run 2026', 'trail-run', '2026', 'tea-plantation-switchbacks.jpg', 'Trail runners moving along highland switchbacks'],
+            ['bonfire-stargazing', 'Bonfire & stargazing', 'Highland Camp', 'camping', '2026', 'bonfire-stargazing.jpg', 'Campers gathering near a warm highland bonfire'],
+            ['cool-down', 'Cool-down at the falls', 'Forest Fun Run', 'trail-run', '2026', 'cool-down-waterfall.jpg', 'A forest trail scene used for a post-run cool-down moment'],
+            ['sunrise-yoga', 'Sunrise mountain yoga', 'Mindful Mountain', 'wellness', '2026', 'sunrise-yoga.jpg', 'A calm sunrise mountain view for a wellness event'],
+            ['walking-crew', 'Walking crew, all paces', 'Healthy Walk', 'walk', '2025', 'walking-crew.jpg', 'A walking community following a green highland path'],
+            ['lakeside-morning', 'Lakeside camp morning', 'Situ Patenggang', 'camping', '2025', 'lakeside-camp-morning.jpg', 'Morning light over a highland camping area'],
+            ['meadow-rest', 'Meadow rest stop', 'Papandayan Hike', 'hike', '2025', 'meadow-rest-stop.jpg', 'Friends resting in a highland meadow during a hike'],
         ];
 
-        foreach ($galleryItems as $index => [$id, $title, $event, $category, $year, $image, $alt]) {
+        foreach ($galleryItems as $index => [$id, $title, $event, $category, $year, $imageFile, $alt]) {
+            $sourcePath = base_path("database/seeders/assets/gallery/{$imageFile}");
+            $storagePath = "gallery/demo/{$imageFile}";
+
+            if (! is_file($sourcePath)) {
+                throw new \RuntimeException("Missing seeded gallery asset: {$sourcePath}");
+            }
+
+            Storage::disk('public')->put($storagePath, file_get_contents($sourcePath));
+
             Gallery::query()->updateOrCreate(
                 ['public_id' => $id],
                 [
@@ -193,7 +203,7 @@ class DatabaseSeeder extends Seeder
                     'event_label' => $event,
                     'category' => $category,
                     'year' => $year,
-                    'image_path' => $image,
+                    'image_path' => $storagePath,
                     'image_alt' => $alt,
                     'caption' => $title,
                     'created_at' => now()->subDays($index),

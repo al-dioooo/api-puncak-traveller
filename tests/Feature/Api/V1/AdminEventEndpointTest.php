@@ -7,6 +7,8 @@ use App\Models\Event;
 use App\Models\TicketType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -45,6 +47,35 @@ class AdminEventEndpointTest extends TestCase
             ->assertNoContent();
 
         $this->assertDatabaseMissing('events', ['slug' => 'cms-create-event']);
+    }
+
+    public function test_admin_can_upload_event_cover_image(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        $event = Event::factory()->upcoming()->create([
+            'cover_image' => 'events/old-cover.jpg',
+            'slug' => 'cover-upload-event',
+        ]);
+        Storage::disk('public')->put('events/old-cover.jpg', 'old-image');
+
+        $response = $this->post(route('api.v1.events.update', $event), [
+            ...$this->eventPayload(['slug' => $event->slug]),
+            '_method' => 'PATCH',
+            'image' => UploadedFile::fake()->image('new-cover.jpg', 1600, 1000),
+        ], ['Accept' => 'application/json']);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.imageAlt', 'CMS Create Event');
+
+        $event->refresh();
+        $this->assertStringStartsWith('events/', $event->cover_image);
+        $this->assertNotSame('events/old-cover.jpg', $event->cover_image);
+        Storage::disk('public')->assertExists($event->cover_image);
+        Storage::disk('public')->assertMissing('events/old-cover.jpg');
+        $this->assertStringContainsString('/storage/events/', $response->json('data.imageUrl'));
     }
 
     public function test_ticket_capacity_cannot_drop_below_sold_count(): void

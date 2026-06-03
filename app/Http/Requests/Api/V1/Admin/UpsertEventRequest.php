@@ -54,6 +54,7 @@ class UpsertEventRequest extends FormRequest
             'tickets.*.description' => ['sometimes', 'nullable', 'string', 'max:500'],
             'tickets.*.price' => ['required_with:tickets', 'integer', 'min:0'],
             'tickets.*.stock' => ['required_with:tickets', 'integer', 'min:0'],
+            'image' => ['sometimes', 'nullable', 'file', 'image', 'mimes:png,jpg,jpeg,webp', 'max:5120'],
         ];
     }
 

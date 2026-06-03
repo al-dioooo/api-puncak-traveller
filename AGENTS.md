@@ -14,6 +14,8 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - laravel/fortify (FORTIFY) - v1
 - laravel/framework (LARAVEL) - v13
 - laravel/prompts (PROMPTS) - v0
+- laravel/sanctum (SANCTUM) - v4
+- laravel/socialite (SOCIALITE) - v5
 - laravel/wayfinder (WAYFINDER) - v0
 - laravel/boost (BOOST) - v2
 - laravel/mcp (MCP) - v0
@@ -58,13 +60,6 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 ## Replies
 
 - Be concise in your explanations - focus on what's important rather than explaining obvious details.
-
-## Commit Workflow
-
-- When writing commits or commit messages, follow Conventional Commits.
-- Split commit plans step-by-step by cohesive change set instead of combining unrelated work.
-- Use a listing format in commit descriptions so included changes are easy to scan.
-- Do not commit local-only secrets or `.env` values; keep shareable placeholders in `.env.example`.
 
 === boost rules ===
 

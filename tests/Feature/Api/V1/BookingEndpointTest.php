@@ -98,6 +98,70 @@ class BookingEndpointTest extends TestCase
             ->assertJsonPath('data.0.primaryAction', 'View ticket');
     }
 
+    public function test_cancelled_booking_appears_as_past_in_all_status_listing(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        [$event, $ticketType] = $this->createBookableEvent();
+        $booking = Booking::factory()->for($user)->for($event)->create([
+            'reference' => 'PTR-26-CANCELLED',
+            'status' => Booking::STATUS_CANCELLED,
+        ]);
+        $booking->items()->create([
+            'ticket_type_id' => $ticketType->id,
+            'quantity' => 1,
+            'unit_price' => $ticketType->price,
+        ]);
+
+        $this->getJson(route('api.v1.bookings.index', ['status' => 'all']))
+            ->assertOk()
+            ->assertJsonPath('data.0.status', 'past')
+            ->assertJsonPath('data.0.badge', 'Cancelled')
+            ->assertJsonPath('data.0.primaryAction', 'View details');
+    }
+
+    public function test_refunded_booking_appears_as_past_in_all_status_listing(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        [$event, $ticketType] = $this->createBookableEvent();
+        $booking = Booking::factory()->for($user)->for($event)->create([
+            'reference' => 'PTR-26-REFUNDED',
+            'status' => Booking::STATUS_REFUNDED,
+        ]);
+        $booking->items()->create([
+            'ticket_type_id' => $ticketType->id,
+            'quantity' => 1,
+            'unit_price' => $ticketType->price,
+        ]);
+
+        $this->getJson(route('api.v1.bookings.index', ['status' => 'all']))
+            ->assertOk()
+            ->assertJsonPath('data.0.status', 'past')
+            ->assertJsonPath('data.0.badge', 'Refunded')
+            ->assertJsonPath('data.0.primaryAction', 'View details');
+    }
+
+    public function test_cancelled_booking_excluded_from_upcoming_status_listing(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        [$event, $ticketType] = $this->createBookableEvent();
+        $booking = Booking::factory()->for($user)->for($event)->create([
+            'reference' => 'PTR-26-CANCELLED-UPCOMING',
+            'status' => Booking::STATUS_CANCELLED,
+        ]);
+        $booking->items()->create([
+            'ticket_type_id' => $ticketType->id,
+            'quantity' => 1,
+            'unit_price' => $ticketType->price,
+        ]);
+
+        $this->getJson(route('api.v1.bookings.index', ['status' => 'upcoming']))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
     public function test_booking_cancellation_enforces_24_hour_cutoff(): void
     {
         $user = User::factory()->create();

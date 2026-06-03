@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Admin\StoreGalleryRequest;
 use App\Http\Resources\GalleryResource;
 use App\Models\Community;
+use App\Models\Event;
 use App\Models\Gallery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;

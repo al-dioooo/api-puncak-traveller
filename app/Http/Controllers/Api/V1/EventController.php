@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -60,10 +61,17 @@ class EventController extends Controller
             });
         }
 
+        $now = now();
+
+        $query->orderByRaw(
+            'case when starts_at > ? then 0 when ends_at < ? then 2 else 1 end',
+            [$now, $now],
+        );
+
         match ($validated['sort'] ?? 'date') {
             'price' => $query->orderBy('starting_price')->orderBy('starts_at'),
             'spots' => $query->orderByRaw('(coalesce(ticket_quantity_sum, 0) - coalesce(ticket_sold_sum, 0)) desc')->orderBy('starts_at'),
-            default => $query->orderBy('starts_at'),
+            default => $query->latest('created_at')->latest('id'),
         };
 
         $paginator = $query->paginate($perPage);
@@ -88,6 +96,7 @@ class EventController extends Controller
         $event = DB::transaction(function () use ($request): Event {
             $event = Event::query()->create([
                 ...$request->eventAttributes(),
+                ...$this->coverImageAttributes($request),
                 'community_id' => $this->defaultCommunity()->id,
                 'public_id' => $this->uniquePublicId('evt'),
                 'status_label' => null,
@@ -106,7 +115,10 @@ class EventController extends Controller
     public function update(UpsertEventRequest $request, Event $event): EventResource
     {
         $event = DB::transaction(function () use ($request, $event): Event {
-            $event->update($request->eventAttributes());
+            $event->update([
+                ...$request->eventAttributes(),
+                ...$this->coverImageAttributes($request, $event),
+            ]);
             $this->syncTicketTypes($event, $request->ticketPayload());
 
             return $event;
@@ -181,6 +193,28 @@ class EventController extends Controller
 
                 $ticketType->delete();
             });
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function coverImageAttributes(UpsertEventRequest $request, ?Event $event = null): array
+    {
+        if (! $request->hasFile('image')) {
+            return [];
+        }
+
+        $path = $request->file('image')->store('events', 'public');
+        $previousPath = $event?->cover_image;
+
+        if ($previousPath && ! str_starts_with($previousPath, '/')) {
+            Storage::disk('public')->delete($previousPath);
+        }
+
+        return [
+            'cover_image' => $path,
+            'image_alt' => $request->string('title')->toString(),
+        ];
     }
 
     private function defaultCommunity(): Community

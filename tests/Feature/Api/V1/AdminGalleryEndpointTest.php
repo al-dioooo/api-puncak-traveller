@@ -52,4 +52,20 @@ class AdminGalleryEndpointTest extends TestCase
             'category' => 'hike',
         ], ['Accept' => 'application/json'])->assertUnprocessable();
     }
+
+    public function test_admin_can_download_stored_gallery_photo(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+        Storage::disk('public')->put('gallery/demo/summit-push-at-dawn.jpg', 'demo-image-bytes');
+        $gallery = Gallery::factory()->create([
+            'public_id' => 'summit-push',
+            'title' => 'Summit push at dawn',
+            'image_path' => 'gallery/demo/summit-push-at-dawn.jpg',
+        ]);
+
+        $this->get(route('api.v1.galleries.download', $gallery))
+            ->assertOk()
+            ->assertHeader('Content-Disposition');
+    }
 }

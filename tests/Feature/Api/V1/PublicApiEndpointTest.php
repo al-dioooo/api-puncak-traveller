@@ -10,6 +10,7 @@ use App\Models\Place;
 use App\Models\TicketType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PublicApiEndpointTest extends TestCase
@@ -50,9 +51,49 @@ class PublicApiEndpointTest extends TestCase
             ->assertJsonPath('data.0.category', 'Trail Run')
             ->assertJsonPath('data.0.priceFrom', 95000)
             ->assertJsonPath('data.0.imageUrl', '/events/morning-run.jpg')
+            ->assertJsonStructure(['data' => [['createdAt']]])
             ->assertJsonPath('meta.page', 1)
             ->assertJsonPath('meta.perPage', 12)
             ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_events_default_order_prioritizes_newest_upcoming_and_completed_last(): void
+    {
+        $this->createEventWithTicket([
+            'slug' => 'old-upcoming',
+            'title' => 'Old Upcoming',
+            'starts_at' => now()->addDays(10),
+            'ends_at' => now()->addDays(10)->addHours(3),
+            'created_at' => now()->subDays(5),
+        ]);
+        $this->createEventWithTicket([
+            'slug' => 'new-completed',
+            'title' => 'New Completed',
+            'starts_at' => now()->subDays(2),
+            'ends_at' => now()->subDay(),
+            'created_at' => now(),
+        ]);
+        $this->createEventWithTicket([
+            'slug' => 'live-now',
+            'title' => 'Live Now',
+            'starts_at' => now()->subHour(),
+            'ends_at' => now()->addHours(2),
+            'created_at' => now()->subHour(),
+        ]);
+        $this->createEventWithTicket([
+            'slug' => 'new-upcoming',
+            'title' => 'New Upcoming',
+            'starts_at' => now()->addDays(3),
+            'ends_at' => now()->addDays(3)->addHours(3),
+            'created_at' => now()->subHour(),
+        ]);
+
+        $this->getJson(route('api.v1.events.index', ['per_page' => 10]))
+            ->assertOk()
+            ->assertJsonPath('data.0.slug', 'new-upcoming')
+            ->assertJsonPath('data.1.slug', 'old-upcoming')
+            ->assertJsonPath('data.2.slug', 'live-now')
+            ->assertJsonPath('data.3.slug', 'new-completed');
     }
 
     public function test_events_can_be_filtered_by_activity_search_and_status(): void
@@ -118,6 +159,8 @@ class PublicApiEndpointTest extends TestCase
 
     public function test_gallery_and_contact_methods_match_frontend_contracts(): void
     {
+        Storage::fake('public');
+        Storage::disk('public')->put('gallery/demo/bonfire-stargazing.jpg', 'demo-image-bytes');
         $community = Community::factory()->create(['slug' => 'puncak-runners']);
         Gallery::factory()->for($community)->create([
             'public_id' => 'bonfire-stargazing',
@@ -125,7 +168,7 @@ class PublicApiEndpointTest extends TestCase
             'event_label' => 'Highland Camp',
             'category' => 'camping',
             'year' => '2026',
-            'image_path' => '/gallery/bonfire-stargazing.jpg',
+            'image_path' => 'gallery/demo/bonfire-stargazing.jpg',
             'image_alt' => 'Campers gathering near a warm highland bonfire',
         ]);
         Gallery::factory()->for($community)->create(['category' => 'hike']);
@@ -140,7 +183,7 @@ class PublicApiEndpointTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', 'bonfire-stargazing')
-            ->assertJsonPath('data.0.imageUrl', '/gallery/bonfire-stargazing.jpg')
+            ->assertJsonPath('data.0.imageUrl', url('/storage/gallery/demo/bonfire-stargazing.jpg'))
             ->assertJsonPath('meta.total', 1);
 
         $this->getJson(route('api.v1.contact-methods.index'))
@@ -151,7 +194,14 @@ class PublicApiEndpointTest extends TestCase
 
     public function test_public_clients_can_read_populated_landing_payload(): void
     {
+        Storage::fake('public');
+        Storage::disk('public')->put('gallery/demo/puncak-trail-run.jpg', 'demo-image-bytes');
         User::factory()->count(2)->create(['role' => User::ROLE_MEMBER]);
+        $parentCommunity = Community::factory()->create(['slug' => 'puncak-parent']);
+        Community::factory()->for($parentCommunity, 'parent')->create([
+            'slug' => 'puncak-runners',
+            'image_path' => '/landing/community-runners.jpg',
+        ]);
         $event = $this->createEventWithTicket([
             'title' => 'Puncak Trail Run',
             'slug' => 'puncak-trail-run',
@@ -165,7 +215,7 @@ class PublicApiEndpointTest extends TestCase
         Gallery::factory()->create([
             'event_id' => $event->id,
             'category' => 'trail-run',
-            'image_path' => '/galleries/puncak-trail-run.jpg',
+            'image_path' => 'gallery/demo/puncak-trail-run.jpg',
         ]);
 
         $this->getJson(route('api.v1.landing'))
@@ -173,6 +223,7 @@ class PublicApiEndpointTest extends TestCase
             ->assertJsonPath('data.hero_stats.0.value', 2)
             ->assertJsonPath('data.upcoming_events.0.slug', 'puncak-trail-run')
             ->assertJsonPath('data.upcoming_events.0.priceFrom', 185000)
+            ->assertJsonPath('data.communities.0.image_url', '/landing/community-runners.jpg')
             ->assertJsonPath('data.activities.0.activity_type', Event::ACTIVITY_TRAIL_RUN);
     }
 

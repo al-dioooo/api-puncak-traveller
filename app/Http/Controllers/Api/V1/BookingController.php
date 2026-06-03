@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
@@ -230,6 +231,8 @@ class BookingController extends Controller
                 'title' => $booking->event?->title ?? 'Puncak Travellers event',
                 'date' => $booking->event?->full_date_label ?? $booking->event?->starts_at?->timezone('Asia/Jakarta')->format('j M Y'),
                 'location' => $booking->event?->location ?? 'Puncak region',
+                'imageUrl' => $this->publicImageUrl($booking->event?->cover_image),
+                'imageAlt' => $booking->event?->image_alt ?? $booking->event?->title ?? 'Puncak Travellers event',
             ],
             'tickets' => $tickets,
             'qty' => (int) $tickets->sum('quantity'),
@@ -272,18 +275,39 @@ class BookingController extends Controller
             ->map(fn (string $name): string => str($name)->before(' ')->toString())
             ->unique()
             ->join(' + ');
-        $status = $event?->status === 'completed' ? 'past' : 'upcoming';
+
+        $isCancelled = $booking->status === Booking::STATUS_CANCELLED;
+        $isRefunded = $booking->status === Booking::STATUS_REFUNDED;
+
+        $status = match (true) {
+            $isCancelled || $isRefunded => 'past',
+            $event?->status === 'completed' => 'past',
+            default => 'upcoming',
+        };
+
+        $badge = match (true) {
+            $isCancelled => 'Cancelled',
+            $isRefunded => 'Refunded',
+            $status === 'upcoming' => 'Upcoming in '.max(0, (int) now()->diffInDays($event?->starts_at, false)).' days',
+            default => 'Completed',
+        };
+
+        $primaryAction = match (true) {
+            $isCancelled || $isRefunded => 'View details',
+            $status === 'upcoming' => 'View ticket',
+            default => 'Certificate',
+        };
 
         return [
             'id' => $booking->reference,
             'status' => $status,
-            'badge' => $status === 'upcoming' ? 'Upcoming in '.max(0, (int) now()->diffInDays($event?->starts_at, false)).' days' : 'Completed',
+            'badge' => $badge,
             'title' => $event?->title ?? 'Puncak Travellers event',
             'date' => $event?->full_date_label ?? $event?->starts_at?->timezone('Asia/Jakarta')->format('D, j M Y - H:i'),
             'location' => $event?->location ?? $event?->place?->name ?? 'Puncak region',
             'reference' => $booking->reference,
             'ticketLabel' => 'Tickets '.$ticketCount.($ticketNames ? ' - '.$ticketNames : ''),
-            'primaryAction' => $status === 'upcoming' ? 'View ticket' : 'Certificate',
+            'primaryAction' => $primaryAction,
             'primaryHref' => '/account',
             'secondaryAction' => $status === 'upcoming' ? 'Manage booking' : 'View recap',
             'secondaryHref' => $status === 'upcoming' ? '/account' : ($event?->recap_href ?? '/account'),
@@ -306,5 +330,18 @@ class BookingController extends Controller
             'secondaryAction' => 'View details',
             'secondaryHref' => $event->detail_href ?? "/events/{$event->slug}",
         ];
+    }
+
+    private function publicImageUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        if (str_starts_with($path, '/')) {
+            return $path;
+        }
+
+        return Storage::disk('public')->url($path);
     }
 }

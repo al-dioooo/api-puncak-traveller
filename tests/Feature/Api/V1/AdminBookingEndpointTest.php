@@ -18,7 +18,10 @@ class AdminBookingEndpointTest extends TestCase
     {
         [$member, $otherMember] = [User::factory()->create(), User::factory()->create()];
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
-        [$event, $ticketType] = $this->createEventWithTicket();
+        [$event, $ticketType] = $this->createEventWithTicket([], [
+            'cover_image' => '/events/puncak-trail-run-2026.jpg',
+            'image_alt' => 'Runners crossing a highland trail',
+        ]);
         $this->createBooking($member, $event, $ticketType, 'PTR-ONE');
         $this->createBooking($otherMember, $event, $ticketType, 'PTR-TWO');
 
@@ -30,7 +33,9 @@ class AdminBookingEndpointTest extends TestCase
         Sanctum::actingAs($admin);
         $this->getJson(route('api.v1.bookings.index'))
             ->assertOk()
-            ->assertJsonCount(2, 'data');
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.event.imageUrl', '/events/puncak-trail-run-2026.jpg')
+            ->assertJsonPath('data.0.event.imageAlt', 'Runners crossing a highland trail');
     }
 
     public function test_admin_refund_is_idempotent_and_restores_ticket_stock_once(): void
@@ -59,9 +64,9 @@ class AdminBookingEndpointTest extends TestCase
      * @param  array<string, mixed>  $ticketAttributes
      * @return array{0: Event, 1: TicketType}
      */
-    private function createEventWithTicket(array $ticketAttributes = []): array
+    private function createEventWithTicket(array $ticketAttributes = [], array $eventAttributes = []): array
     {
-        $event = Event::factory()->upcoming()->create();
+        $event = Event::factory()->upcoming()->create($eventAttributes);
         $ticketType = TicketType::factory()->for($event)->create(array_merge([
             'public_id' => 'general',
             'name' => 'General',
