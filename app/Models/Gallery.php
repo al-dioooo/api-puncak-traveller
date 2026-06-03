@@ -14,6 +14,11 @@ class Gallery extends Model
     /** @use HasFactory<GalleryFactory> */
     use HasFactory;
 
+    public function getRouteKeyName(): string
+    {
+        return 'public_id';
+    }
+
     public function community(): BelongsTo
     {
         return $this->belongsTo(Community::class);

@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'schedule',
     'starts_at',
     'ends_at',
+    'publication_status',
     'status_label',
     'date_label',
     'full_date_label',
@@ -61,6 +62,12 @@ class Event extends Model
 
     public const ACTIVITY_FUN_RUN = 'fun-run';
 
+    public const PUBLICATION_DRAFT = 'draft';
+
+    public const PUBLICATION_PUBLISHED = 'published';
+
+    public const PUBLICATION_ARCHIVED = 'archived';
+
     /**
      * @var array<string, string>
      */
@@ -75,6 +82,7 @@ class Event extends Model
 
     protected $attributes = [
         'activity_type' => self::ACTIVITY_TRAIL_RUN,
+        'publication_status' => self::PUBLICATION_PUBLISHED,
     ];
 
     public function getRouteKeyName(): string
@@ -144,6 +152,11 @@ class Event extends Model
         }
 
         return 'ongoing';
+    }
+
+    public function getPublicationStatusLabelAttribute(): string
+    {
+        return str($this->publication_status ?? self::PUBLICATION_PUBLISHED)->replace('-', ' ')->title()->toString();
     }
 
     /**

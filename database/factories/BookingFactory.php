@@ -25,6 +25,7 @@ class BookingFactory extends Factory
             'event_id' => Event::factory(),
             'reference' => 'PT-'.now()->format('Ymd').'-'.Str::upper(Str::random(8)),
             'status' => Booking::STATUS_CONFIRMED,
+            'payment_status' => Booking::PAYMENT_PAID,
             'subtotal' => 0,
             'booking_fee' => 0,
             'total' => 0,

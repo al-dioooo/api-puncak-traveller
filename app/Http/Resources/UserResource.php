@@ -25,6 +25,8 @@ class UserResource extends JsonResource
             'location' => $this->location,
             'memberSince' => $this->created_at?->format('Y'),
             'crew' => $this->crew,
+            'role' => $this->role,
+            'status' => $this->status,
             'stats' => [
                 'eventsBooked' => $bookings->count(),
                 'completed' => $completedBookings->count(),

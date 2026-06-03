@@ -18,7 +18,9 @@ class GalleryResource extends JsonResource
         return [
             'id' => $this->public_id ?? (string) $this->id,
             'title' => $this->title ?? $this->caption ?? 'Puncak Travellers moment',
+            'caption' => $this->caption ?? $this->title ?? 'Puncak Travellers moment',
             'event' => $this->event_label ?? $this->event?->title ?? 'Puncak Travellers',
+            'eventId' => $this->event?->public_id ?? $this->event?->slug ?? $this->event_id,
             'category' => $this->category ?? $this->event?->activity ?? 'trail-run',
             'year' => $this->year ?? $this->created_at?->format('Y') ?? '2026',
             'imageUrl' => $this->publicImageUrl($this->image_path),

@@ -25,6 +25,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(AdminUserSeeder::class);
+
         $rootCommunity = Community::query()->updateOrCreate(
             ['slug' => 'puncak-travellers'],
             [
@@ -136,6 +138,7 @@ class DatabaseSeeder extends Seeder
                     'schedule' => $eventData['schedule'] ?? null,
                     'starts_at' => Carbon::parse($eventData['starts_at'], 'Asia/Jakarta')->utc(),
                     'ends_at' => Carbon::parse($eventData['ends_at'], 'Asia/Jakarta')->utc(),
+                    'publication_status' => Event::PUBLICATION_PUBLISHED,
                     'status_label' => null,
                     'date_label' => $eventData['date_label'],
                     'full_date_label' => $eventData['full_date_label'],
@@ -248,6 +251,7 @@ class DatabaseSeeder extends Seeder
                     'user_id' => $alex->id,
                     'event_id' => $event->id,
                     'status' => $event->status === 'completed' ? Booking::STATUS_COMPLETED : Booking::STATUS_CONFIRMED,
+                    'payment_status' => Booking::PAYMENT_PAID,
                     'attendee_name' => $alex->name,
                     'attendee_email' => $alex->email,
                     'subtotal' => 0,

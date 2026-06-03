@@ -22,6 +22,8 @@ class TicketTypeResource extends JsonResource
             'price' => (int) $this->price,
             'currency' => $this->currency ?? 'IDR',
             'stock' => $this->remaining,
+            'quantity' => (int) $this->quantity,
+            'sold' => (int) $this->sold,
             'capacityLabel' => $this->capacity_label ?? ($this->remaining > 0 ? "{$this->remaining} left" : 'Sold out'),
             'maxPerUser' => $this->when($this->max_per_user !== null, $this->max_per_user),
         ];

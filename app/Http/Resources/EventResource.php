@@ -26,6 +26,8 @@ class EventResource extends JsonResource
             'activity' => $this->activity ?? $this->activity_type,
             'status' => $this->status,
             'statusLabel' => $this->status_label ?? str($this->status)->replace('-', ' ')->title()->toString(),
+            'publicationStatus' => $this->publication_status ?? 'published',
+            'publicationStatusLabel' => $this->publication_status_label,
             'startsAt' => $this->starts_at?->toIso8601String(),
             'endsAt' => $this->ends_at?->toIso8601String(),
             'dateLabel' => $this->date_label ?? $this->starts_at?->timezone('Asia/Jakarta')->format('D, j M - H:i'),

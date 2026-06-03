@@ -18,6 +18,7 @@ class BookingResource extends JsonResource
             'id' => (string) $this->id,
             'reference' => $this->reference,
             'status' => $this->status,
+            'paymentStatus' => $this->payment_status,
             'eventId' => $this->event?->public_id ?? (string) $this->event_id,
             'eventSlug' => $this->event?->slug,
             'attendeeName' => $this->attendee_name,

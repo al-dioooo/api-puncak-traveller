@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'event_id',
     'reference',
     'status',
+    'payment_status',
     'attendee_name',
     'attendee_email',
     'subtotal',
@@ -34,11 +35,22 @@ class Booking extends Model
 
     public const STATUS_COMPLETED = 'completed';
 
+    public const STATUS_REFUNDED = 'refunded';
+
+    public const PAYMENT_PENDING = 'pending';
+
+    public const PAYMENT_PAID = 'paid';
+
+    public const PAYMENT_FAILED = 'failed';
+
+    public const PAYMENT_REFUNDED = 'refunded';
+
     /** @use HasFactory<BookingFactory> */
     use HasFactory;
 
     protected $attributes = [
         'status' => self::STATUS_CONFIRMED,
+        'payment_status' => self::PAYMENT_PENDING,
         'subtotal' => 0,
         'booking_fee' => 0,
         'total' => 0,

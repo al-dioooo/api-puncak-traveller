@@ -15,7 +15,7 @@ use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'role', 'google_id', 'avatar', 'location', 'crew', 'password'])]
+#[Fillable(['name', 'email', 'role', 'status', 'google_id', 'avatar', 'location', 'crew', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
@@ -23,11 +23,16 @@ class User extends Authenticatable implements PasskeyUser
 
     public const ROLE_ADMIN = 'admin';
 
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_INACTIVE = 'inactive';
+
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
     protected $attributes = [
         'role' => self::ROLE_MEMBER,
+        'status' => self::STATUS_ACTIVE,
     ];
 
     public function bookings(): HasMany

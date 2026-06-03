@@ -28,6 +28,7 @@ class UserFactory extends Factory
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'role' => User::ROLE_MEMBER,
+            'status' => User::STATUS_ACTIVE,
             'google_id' => null,
             'avatar' => null,
             'email_verified_at' => now(),

@@ -16,7 +16,7 @@ class BookingEndpointTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
-    public function test_authenticated_user_can_create_confirmed_booking_from_frontend_payload(): void
+    public function test_authenticated_user_can_create_pending_booking_from_frontend_payload(): void
     {
         $user = User::factory()->create(['name' => 'Alex Puncak', 'email' => 'alex@example.com']);
         Sanctum::actingAs($user);
@@ -35,7 +35,8 @@ class BookingEndpointTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.status', Booking::STATUS_CONFIRMED)
+            ->assertJsonPath('data.status', Booking::STATUS_PENDING)
+            ->assertJsonPath('data.paymentStatus', Booking::PAYMENT_PENDING)
             ->assertJsonPath('data.subtotal', 185000)
             ->assertJsonPath('data.bookingFee', 5000)
             ->assertJsonPath('data.total', 190000)
