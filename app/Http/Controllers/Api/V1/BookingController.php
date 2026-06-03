@@ -30,7 +30,7 @@ class BookingController extends Controller
             $savedEvents = $request->user()
                 ->savedEvents()
                 ->with(['event.ticketTypes'])
-                ->latest()
+                ->orderBy('created_at', 'desc')
                 ->get();
 
             return response()->json([
@@ -40,7 +40,7 @@ class BookingController extends Controller
 
         $bookingsQuery = Booking::query()
             ->with(['user', 'event', 'items.ticketType'])
-            ->latest();
+            ->orderBy('created_at', 'desc');
 
         if ($request->user()->role !== User::ROLE_ADMIN) {
             $bookingsQuery->whereBelongsTo($request->user());
@@ -171,8 +171,14 @@ class BookingController extends Controller
         ]);
     }
 
-    public function ticket(Booking $booking): Response
+    public function ticket(Request $request, Booking $booking): Response
     {
+        abort_unless($booking->user()->is($request->user()) || $request->user()->role === User::ROLE_ADMIN, 403);
+
+        if ($booking->payment_status !== Booking::PAYMENT_PAID) {
+            throw new ConflictHttpException('Tickets are available after payment is completed.');
+        }
+
         $booking->load(['user', 'event', 'items.ticketType']);
         $filename = str($booking->reference)
             ->replaceMatches('/[^A-Za-z0-9_-]+/', '-')
@@ -386,10 +392,13 @@ class BookingController extends Controller
             default => 'Completed',
         };
 
+        $ticketAvailable = $booking->payment_status === Booking::PAYMENT_PAID
+            && ! $isCancelled
+            && ! $isRefunded;
         $primaryAction = match (true) {
+            $ticketAvailable => 'View ticket',
             $isCancelled || $isRefunded => 'View details',
-            $status === 'upcoming' => 'View ticket',
-            default => 'Certificate',
+            default => 'Ticket unavailable',
         };
 
         return [
@@ -401,11 +410,10 @@ class BookingController extends Controller
             'location' => $event?->location ?? $event?->place?->name ?? 'Puncak region',
             'reference' => $booking->reference,
             'paymentStatus' => $booking->payment_status,
+            'ticketAvailable' => $ticketAvailable,
             'ticketLabel' => 'Tickets '.$ticketCount.($ticketNames ? ' - '.$ticketNames : ''),
             'primaryAction' => $primaryAction,
-            'primaryHref' => '/account',
-            'secondaryAction' => $status === 'upcoming' ? 'Manage booking' : 'View recap',
-            'secondaryHref' => $status === 'upcoming' ? '/account' : ($event?->recap_href ?? '/account'),
+            'primaryHref' => $ticketAvailable ? "/api/puncak/bookings/{$booking->reference}/ticket" : '/account',
         ];
     }
 

@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -102,50 +101,6 @@ class AuthController extends Controller
         }
 
         return response()->json(null, 204);
-    }
-
-    public function forgotPassword(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'email' => ['required', 'email:rfc,dns'],
-        ]);
-
-        Password::sendResetLink($validated);
-
-        return response()->json([
-            'message' => 'If an account exists for that email, a password reset link has been sent.',
-        ]);
-    }
-
-    public function resetPassword(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'token' => ['required', 'string'],
-            'email' => ['required', 'email:rfc,dns'],
-            'password' => ['required', 'confirmed', PasswordRule::defaults()],
-        ]);
-
-        $status = Password::reset(
-            $validated,
-            function (User $user, string $password): void {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
-
-                $user->tokens()->delete();
-            }
-        );
-
-        if ($status !== Password::PASSWORD_RESET) {
-            throw ValidationException::withMessages([
-                'email' => [__($status)],
-            ]);
-        }
-
-        return response()->json([
-            'message' => 'Password reset successfully.',
-        ]);
     }
 
     public function redirectToGoogle(Request $request): RedirectResponse

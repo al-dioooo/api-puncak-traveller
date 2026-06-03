@@ -170,6 +170,7 @@ class AdminBookingEndpointTest extends TestCase
         $booking = Booking::factory()->for($user)->for($event)->create([
             'reference' => $reference,
             'status' => Booking::STATUS_CONFIRMED,
+            'payment_status' => Booking::PAYMENT_PAID,
             'subtotal' => $quantity * $ticketType->price,
             'booking_fee' => 5000,
             'total' => ($quantity * $ticketType->price) + 5000,

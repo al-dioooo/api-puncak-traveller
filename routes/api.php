@@ -29,8 +29,6 @@ Route::prefix('v1')
         Route::prefix('auth')->as('auth.')->group(function (): void {
             Route::post('register', [AuthController::class, 'register'])->name('register');
             Route::post('login', [AuthController::class, 'login'])->name('login');
-            Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->name('forgot-password');
-            Route::post('reset-password', [AuthController::class, 'resetPassword'])->name('reset-password');
             Route::post('google/exchange', [AuthController::class, 'exchangeGoogleCode'])->name('google.exchange');
             Route::middleware('auth:sanctum')->group(function (): void {
                 Route::get('user', [AuthController::class, 'user'])->name('user');
@@ -59,6 +57,7 @@ Route::prefix('v1')
             Route::post('bookings', [BookingController::class, 'store'])->name('bookings.store');
             Route::post('bookings/{booking:reference}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
             Route::post('bookings/{booking:reference}/payment-status/sync', [BookingController::class, 'syncPaymentStatus'])->name('bookings.payment-status.sync');
+            Route::get('bookings/{booking:reference}/ticket', [BookingController::class, 'ticket'])->name('bookings.ticket');
             Route::post('bookings/{booking:reference}/refund', [BookingController::class, 'refund'])
                 ->middleware('admin')
                 ->name('bookings.refund');
@@ -88,7 +87,6 @@ Route::prefix('v1')
             Route::post('galleries/bulk-delete', [GalleryController::class, 'bulkDestroy'])->name('galleries.bulk-destroy');
 
             Route::post('bookings/{booking:reference}/resend-receipt', [BookingController::class, 'resendReceipt'])->name('bookings.resend-receipt');
-            Route::get('bookings/{booking:reference}/ticket', [BookingController::class, 'ticket'])->name('bookings.ticket');
             Route::patch('bookings/{booking:reference}/payment-status', [BookingController::class, 'updatePaymentStatus'])->name('bookings.payment-status.update');
         });
     });
