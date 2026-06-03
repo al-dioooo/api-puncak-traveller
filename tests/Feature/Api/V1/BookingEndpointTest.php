@@ -9,6 +9,7 @@ use App\Models\Place;
 use App\Models\TicketType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -21,6 +22,7 @@ class BookingEndpointTest extends TestCase
         $user = User::factory()->create(['name' => 'Alex Puncak', 'email' => 'alex@example.com']);
         Sanctum::actingAs($user);
         [$event, $ticketType] = $this->createBookableEvent();
+        $this->fakeMidtransSnap();
 
         $response = $this->postJson(route('api.v1.bookings.store'), [
             'eventSlug' => $event->slug,
@@ -40,9 +42,16 @@ class BookingEndpointTest extends TestCase
             ->assertJsonPath('data.subtotal', 185000)
             ->assertJsonPath('data.bookingFee', 5000)
             ->assertJsonPath('data.total', 190000)
-            ->assertJsonPath('data.currency', 'IDR');
+            ->assertJsonPath('data.currency', 'IDR')
+            ->assertJsonPath('data.paymentProvider', 'midtrans')
+            ->assertJsonPath('data.snapToken', 'snap-token');
 
         $this->assertSame(1, $ticketType->refresh()->sold);
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://app.sandbox.midtrans.com/snap/v1/transactions'
+            && $request['transaction_details']['gross_amount'] === 190000
+            && $request['customer_details']['email'] === 'alex@example.com'
+            && collect($request['item_details'])->contains(fn (array $item): bool => $item['id'] === 'booking-fee'));
     }
 
     public function test_booking_conflicts_and_auth_failures_return_stable_json(): void
@@ -236,5 +245,18 @@ class BookingEndpointTest extends TestCase
         ], $ticketAttributes));
 
         return [$event, $ticketType];
+    }
+
+    private function fakeMidtransSnap(): void
+    {
+        config()->set('services.midtrans.server_key', 'SB-Mid-server-test');
+        config()->set('services.midtrans.snap_api_url', 'https://app.sandbox.midtrans.com/snap/v1/transactions');
+
+        Http::fake([
+            'https://app.sandbox.midtrans.com/snap/v1/transactions' => Http::response([
+                'token' => 'snap-token',
+                'redirect_url' => 'https://app.sandbox.midtrans.com/snap/v4/redirection/snap-token',
+            ], 201),
+        ]);
     }
 }

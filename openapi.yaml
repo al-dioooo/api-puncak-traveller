@@ -437,6 +437,45 @@ paths:
                           $ref: "#/components/schemas/Booking"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+    post:
+      tags: [Bookings]
+      operationId: createBooking
+      summary: Create an idempotent booking and Midtrans Snap transaction.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            minLength: 1
+          example: booking-run-001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+      responses:
+        "201":
+          description: Booking created with a Snap token for payment.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Booking"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Ticket inventory or payment transaction conflict.
+        "422":
+          $ref: "#/components/responses/ValidationError"
   /api/v1/bookings/{booking}:
     get:
       tags: [Bookings]
@@ -539,45 +578,43 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/ValidationError"
-  /api/v1/events/{event}/bookings:
+  /api/v1/payments/midtrans/notification:
     post:
       tags: [Bookings]
-      operationId: createEventBooking
-      summary: Create an idempotent booking for an event.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/EventSlug"
-        - name: Idempotency-Key
-          in: header
-          required: true
-          schema:
-            type: string
-            minLength: 1
-          example: booking-run-001
+      operationId: handleMidtransPaymentNotification
+      summary: Receive Midtrans Snap payment notification.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateBookingRequest"
+              $ref: "#/components/schemas/MidtransNotificationRequest"
       responses:
-        "201":
-          description: Booking created.
+        "200":
+          description: Notification accepted and booking payment state updated.
           content:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [message, data]
                 properties:
+                  message:
+                    type: string
                   data:
-                    $ref: "#/components/schemas/Booking"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
+                    type: object
+                    properties:
+                      reference:
+                        type: string
+                      status:
+                        type: string
+                      paymentStatus:
+                        type: string
+        "403":
+          description: Invalid Midtrans signature.
         "404":
           $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/ValidationError"
+        "409":
+          description: Notification amount does not match booking total.
 components:
   securitySchemes:
     bearerAuth:
@@ -996,22 +1033,61 @@ components:
           $ref: "#/components/schemas/TicketType"
     Booking:
       type: object
-      required: [id, event_id, reference, status, total, created_at, items]
+      required: [id, reference, status, paymentStatus, total, currency, createdAt, items]
       properties:
         id:
-          type: integer
-        event_id:
-          type: integer
+          type: string
+        eventId:
+          type: string
+        eventSlug:
+          type: [string, "null"]
         reference:
           type: string
-          example: PT-20260602-ABCDEFGH
+          example: PTR-26-8F3K2A
         status:
           type: string
-          enum: [reserved, cancelled]
+          enum: [pending, confirmed, cancelled, completed, refunded]
+        paymentStatus:
+          type: string
+          enum: [pending, paid, failed, refunded]
+        paymentProvider:
+          type: [string, "null"]
+          example: midtrans
+        snapToken:
+          type: [string, "null"]
+          description: Token passed to `window.snap.pay()` while payment is pending.
+        snapRedirectUrl:
+          type: [string, "null"]
+          format: uri
+        midtransOrderId:
+          type: [string, "null"]
+        attendeeName:
+          type: [string, "null"]
+        attendeeEmail:
+          type: [string, "null"]
+          format: email
+        subtotal:
+          type: integer
+          minimum: 0
+        bookingFee:
+          type: integer
+          minimum: 0
         total:
           type: integer
           minimum: 0
-        created_at:
+        currency:
+          type: string
+          example: IDR
+        paidAt:
+          type: [string, "null"]
+          format: date-time
+        paymentFailedAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
         event:
@@ -1022,23 +1098,66 @@ components:
             $ref: "#/components/schemas/BookingItem"
     CreateBookingRequest:
       type: object
-      required: [items]
+      required: [eventSlug, items, termsAccepted]
       properties:
+        eventSlug:
+          type: string
+          example: puncak-trail-run-2026
+        termsAccepted:
+          type: boolean
+          const: true
         items:
           type: array
           minItems: 1
           items:
             type: object
-            required: [ticket_type_id, quantity]
+            required: [ticketTierId, quantity]
             properties:
-              ticket_type_id:
-                type: integer
-                example: 1
+              ticketTierId:
+                type: string
+                example: 21k
               quantity:
                 type: integer
                 minimum: 1
                 maximum: 10
                 example: 2
+        attendees:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              email:
+                type: string
+                format: email
+              ticketTierId:
+                type: string
+    MidtransNotificationRequest:
+      type: object
+      required: [order_id, status_code, gross_amount, transaction_status, signature_key]
+      properties:
+        order_id:
+          type: string
+          example: PTR-26-8F3K2A
+        status_code:
+          type: string
+          example: "200"
+        gross_amount:
+          type: string
+          example: "190000.00"
+        transaction_status:
+          type: string
+          enum: [capture, settlement, pending, deny, cancel, expire, failure, refund, partial_refund]
+        signature_key:
+          type: string
+          description: SHA512(order_id + status_code + gross_amount + Midtrans server key).
+        transaction_id:
+          type: string
+        payment_type:
+          type: string
+        fraud_status:
+          type: string
     ErrorResponse:
       type: object
       required: [message]

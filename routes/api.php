@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\LandingController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\MemberController;
+use App\Http\Controllers\Api\V1\MidtransNotificationController;
 use App\Http\Controllers\Api\V1\PlaceController;
 use App\Http\Controllers\Api\V1\SavedEventController;
 use Illuminate\Support\Facades\Route;
@@ -46,6 +47,7 @@ Route::prefix('v1')
         Route::apiResource('galleries', GalleryController::class)->only(['index', 'show']);
         Route::get('contact-methods', [ContactMethodController::class, 'index'])->name('contact-methods.index');
         Route::post('contact', ContactMessageController::class)->name('contact.store');
+        Route::post('payments/midtrans/notification', MidtransNotificationController::class)->name('payments.midtrans.notification');
 
         Route::middleware('auth:sanctum')->group(function (): void {
             Route::get('me', [MeController::class, 'show'])->name('me');

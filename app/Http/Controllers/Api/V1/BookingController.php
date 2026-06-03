@@ -10,15 +10,17 @@ use App\Mail\BookingReceiptMail;
 use App\Models\Booking;
 use App\Models\Event;
 use App\Models\User;
+use App\Services\BookingPaymentService;
+use App\Services\MidtransSnapService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Throwable;
 
 class BookingController extends Controller
 {
@@ -64,8 +66,12 @@ class BookingController extends Controller
         ]);
     }
 
-    public function store(CreateBookingRequest $request, CreateBooking $createBooking): JsonResponse
-    {
+    public function store(
+        CreateBookingRequest $request,
+        CreateBooking $createBooking,
+        MidtransSnapService $midtrans,
+        BookingPaymentService $payments
+    ): JsonResponse {
         $event = $request->event();
 
         abort_if($event === null, 404, 'Event not found.');
@@ -77,6 +83,8 @@ class BookingController extends Controller
             $request->validated('attendees', []),
             $request->idempotencyKey() ?: null
         );
+
+        $booking = $this->ensureSnapTransaction($booking, $midtrans, $payments);
 
         return (new BookingResource($booking))->response()->setStatusCode(201);
     }
@@ -94,7 +102,7 @@ class BookingController extends Controller
         return new BookingResource($booking);
     }
 
-    public function cancel(Request $request, Booking $booking): JsonResponse
+    public function cancel(Request $request, Booking $booking, BookingPaymentService $payments): JsonResponse
     {
         abort_unless($booking->user()->is($request->user()), 403);
 
@@ -104,52 +112,35 @@ class BookingController extends Controller
             throw new ConflictHttpException('Bookings can only be cancelled at least 24 hours before the event starts.');
         }
 
-        if ($booking->status === Booking::STATUS_CONFIRMED) {
-            foreach ($booking->items as $item) {
-                $item->ticketType()->decrement('sold', $item->quantity);
-            }
-        }
-
-        $booking->update([
-            'status' => Booking::STATUS_CANCELLED,
-            'cancelled_at' => now(),
-            'cancellation_reason' => $request->string('reason')->toString(),
-        ]);
+        $booking = $payments->cancelBooking($booking, $request->string('reason')->toString());
 
         return response()->json([
             'data' => [
                 'reference' => $booking->reference,
-                'status' => Booking::STATUS_CANCELLED,
+                'status' => $booking->status,
             ],
         ]);
     }
 
-    public function refund(Booking $booking): JsonResponse
+    public function refund(Booking $booking, BookingPaymentService $payments): JsonResponse
     {
-        $booking = DB::transaction(function () use ($booking): Booking {
-            $booking->load(['items.ticketType']);
+        $booking->load(['items.ticketType']);
 
-            if ($booking->status === Booking::STATUS_REFUNDED) {
-                return $booking;
-            }
-
-            if (! in_array($booking->status, [Booking::STATUS_CONFIRMED, Booking::STATUS_COMPLETED], true)) {
-                throw new ConflictHttpException('Only confirmed bookings can be refunded.');
-            }
-
-            foreach ($booking->items as $item) {
-                $item->ticketType()->decrement('sold', $item->quantity);
-            }
-
-            $booking->update([
-                'status' => Booking::STATUS_REFUNDED,
-                'payment_status' => Booking::PAYMENT_REFUNDED,
-                'cancelled_at' => now(),
-                'cancellation_reason' => 'Refunded by administrator.',
+        if ($booking->status === Booking::STATUS_REFUNDED) {
+            return response()->json([
+                'message' => 'Booking refunded successfully.',
+                'data' => [
+                    'reference' => $booking->reference,
+                    'status' => Booking::STATUS_REFUNDED,
+                ],
             ]);
+        }
 
-            return $booking;
-        });
+        if (! in_array($booking->status, [Booking::STATUS_CONFIRMED, Booking::STATUS_COMPLETED], true)) {
+            throw new ConflictHttpException('Only confirmed bookings can be refunded.');
+        }
+
+        $booking = $payments->markRefunded($booking, reason: 'Refunded by administrator.');
 
         return response()->json([
             'message' => 'Booking refunded successfully.',
@@ -195,7 +186,7 @@ class BookingController extends Controller
         ]);
     }
 
-    public function updatePaymentStatus(Request $request, Booking $booking): JsonResponse
+    public function updatePaymentStatus(Request $request, Booking $booking, BookingPaymentService $payments): JsonResponse
     {
         $validated = $request->validate([
             'payment_status' => ['required', Rule::in([
@@ -206,15 +197,12 @@ class BookingController extends Controller
             ])],
         ]);
 
-        $booking->update([
-            'payment_status' => $validated['payment_status'],
-            'status' => match ($validated['payment_status']) {
-                Booking::PAYMENT_PAID => Booking::STATUS_CONFIRMED,
-                Booking::PAYMENT_REFUNDED => Booking::STATUS_REFUNDED,
-                Booking::PAYMENT_FAILED => Booking::STATUS_CANCELLED,
-                default => Booking::STATUS_PENDING,
-            },
-        ]);
+        $booking = match ($validated['payment_status']) {
+            Booking::PAYMENT_PAID => $payments->markPaid($booking),
+            Booking::PAYMENT_REFUNDED => $payments->markRefunded($booking, reason: 'Refunded by administrator.'),
+            Booking::PAYMENT_FAILED => $payments->markFailed($booking, 'Payment marked as failed by administrator.'),
+            default => $payments->markPending($booking),
+        };
 
         return response()->json([
             'message' => 'Payment status updated successfully.',
@@ -224,6 +212,44 @@ class BookingController extends Controller
                 'paymentStatus' => $booking->payment_status,
             ],
         ]);
+    }
+
+    private function ensureSnapTransaction(
+        Booking $booking,
+        MidtransSnapService $midtrans,
+        BookingPaymentService $payments
+    ): Booking {
+        $booking->loadMissing(['user', 'event', 'items.ticketType']);
+
+        if ($booking->payment_status !== Booking::PAYMENT_PENDING || $booking->snap_token) {
+            return $booking;
+        }
+
+        $wasRecentlyCreated = $booking->wasRecentlyCreated;
+
+        try {
+            $booking->forceFill([
+                'payment_provider' => 'midtrans',
+                'midtrans_order_id' => $booking->midtrans_order_id ?: $booking->reference,
+            ])->save();
+
+            $snap = $midtrans->createTransaction($booking);
+
+            $booking->forceFill([
+                'snap_token' => $snap['token'],
+                'snap_redirect_url' => $snap['redirect_url'] ?? null,
+            ])->save();
+
+            return $booking->refresh()->load(['event', 'items.ticketType']);
+        } catch (Throwable $exception) {
+            if ($wasRecentlyCreated) {
+                $failedBooking = $payments->releaseFailedBooking($booking, 'Midtrans Snap transaction could not be created.');
+                $failedBooking->items()->delete();
+                $failedBooking->delete();
+            }
+
+            throw $exception;
+        }
     }
 
     private function applyStatusFilter(Builder $query, string $status): void

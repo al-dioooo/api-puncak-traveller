@@ -15,6 +15,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'reference',
     'status',
     'payment_status',
+    'payment_provider',
+    'midtrans_order_id',
+    'snap_token',
+    'snap_redirect_url',
+    'midtrans_transaction_id',
+    'midtrans_payment_type',
+    'midtrans_status',
+    'midtrans_fraud_status',
+    'midtrans_payload',
     'attendee_name',
     'attendee_email',
     'subtotal',
@@ -23,6 +32,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'currency',
     'idempotency_key',
     'cancelled_at',
+    'paid_at',
+    'payment_failed_at',
+    'stock_released_at',
     'cancellation_reason',
 ])]
 class Booking extends Model
@@ -86,7 +98,11 @@ class Booking extends Model
             'subtotal' => 'integer',
             'booking_fee' => 'integer',
             'total' => 'integer',
+            'midtrans_payload' => 'array',
             'cancelled_at' => 'datetime',
+            'paid_at' => 'datetime',
+            'payment_failed_at' => 'datetime',
+            'stock_released_at' => 'datetime',
         ];
     }
 }
