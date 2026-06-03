@@ -6,6 +6,7 @@ use App\Models\User;
 use Database\Seeders\AdminUserSeeder;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -18,8 +19,12 @@ class AdminSeederTest extends TestCase
         $this->seed(AdminUserSeeder::class);
         $this->seed(AdminUserSeeder::class);
 
-        $this->assertSame(1, User::query()->where('email', 'alice@puncaktraveller.id')->count());
-        $this->assertSame(User::ROLE_ADMIN, User::query()->where('email', 'alice@puncaktraveller.id')->firstOrFail()->role);
+        $admin = User::query()->where('email', 'admin@puncaktraveller.id')->firstOrFail();
+
+        $this->assertSame(1, User::query()->where('email', 'admin@puncaktraveller.id')->count());
+        $this->assertSame('Administrator', $admin->name);
+        $this->assertSame(User::ROLE_ADMIN, $admin->role);
+        $this->assertTrue(Hash::check('aldio1234', $admin->password));
     }
 
     public function test_database_seeder_publishes_demo_gallery_images(): void

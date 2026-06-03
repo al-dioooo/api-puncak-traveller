@@ -13,13 +13,13 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
-        $email = env('PUNCAK_ADMIN_EMAIL', 'alice@puncaktraveller.id');
+        $email = env('PUNCAK_ADMIN_EMAIL', 'admin@puncaktraveller.id');
         $password = env('PUNCAK_ADMIN_PASSWORD', 'aldio1234');
 
         User::query()->updateOrCreate(
             ['email' => $email],
             [
-                'name' => env('PUNCAK_ADMIN_NAME', 'Puncak Administrator'),
+                'name' => env('PUNCAK_ADMIN_NAME', 'Administrator'),
                 'role' => User::ROLE_ADMIN,
                 'status' => User::STATUS_ACTIVE,
                 'password' => Hash::make($password),
