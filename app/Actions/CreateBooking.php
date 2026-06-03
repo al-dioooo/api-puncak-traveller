@@ -41,7 +41,7 @@ class CreateBooking
             $ticketTypes = TicketType::query()
                 ->whereBelongsTo($event)
                 ->whereIn('public_id', $requestedItems->keys())
-                ->orderBy('id')
+                ->orderBy('id', 'asc')
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('public_id');

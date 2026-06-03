@@ -15,7 +15,7 @@ class SavedEventController extends Controller
         $savedEvents = $request->user()
             ->savedEvents()
             ->with(['event.ticketTypes'])
-            ->latest()
+            ->orderBy('created_at', 'desc')
             ->get();
 
         return response()->json([

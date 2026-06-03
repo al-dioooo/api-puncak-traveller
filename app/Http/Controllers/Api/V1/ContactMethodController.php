@@ -12,7 +12,7 @@ class ContactMethodController extends Controller
     {
         return response()->json([
             'data' => ContactMethod::query()
-                ->orderBy('sort_order')
+                ->orderBy('sort_order', 'asc')
                 ->get()
                 ->map(fn (ContactMethod $method): array => [
                     'title' => $method->title,

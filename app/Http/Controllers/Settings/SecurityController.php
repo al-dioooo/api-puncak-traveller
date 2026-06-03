@@ -25,7 +25,7 @@ class SecurityController extends Controller
                 ? $request->user()
                     ->passkeys()
                     ->select(['id', 'name', 'credential', 'created_at', 'last_used_at'])
-                    ->latest()
+                    ->orderBy('created_at', 'desc')
                     ->get()
                     ->map(fn ($passkey) => [
                         'id' => $passkey->id,

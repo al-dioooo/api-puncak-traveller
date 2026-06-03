@@ -22,7 +22,7 @@ class CommunityController extends Controller
             Community::query()
                 ->with('children')
                 ->whereNull('parent_id')
-                ->latest()
+                ->orderBy('created_at', 'desc')
                 ->paginate($perPage)
         );
     }

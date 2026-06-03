@@ -30,7 +30,7 @@ class GalleryController extends Controller
         $perPage = max(1, min((int) ($validated['per_page'] ?? 12), 50));
         $query = Gallery::query()
             ->with(['community', 'event'])
-            ->latest();
+            ->orderBy('created_at', 'desc');
 
         if (($validated['category'] ?? 'all') !== 'all') {
             $query->where('category', $validated['category']);
@@ -57,8 +57,7 @@ class GalleryController extends Controller
         return new GalleryResource($gallery->load([
             'community',
             'event' => fn ($query) => $query
-                ->with(['community', 'place'])
-                ->withMin('ticketTypes as starting_price', 'price'),
+                ->with(['community', 'place', 'ticketTypes']),
         ]));
     }
 

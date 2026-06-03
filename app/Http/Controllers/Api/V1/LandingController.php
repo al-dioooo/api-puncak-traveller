@@ -22,25 +22,22 @@ class LandingController extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         $upcomingEvents = Event::query()
-            ->with(['community', 'place'])
-            ->withMin('ticketTypes as starting_price', 'price')
+            ->with(['community', 'place', 'ticketTypes'])
             ->forStatus('upcoming')
-            ->oldest('starts_at')
+            ->orderBy('starts_at', 'asc')
             ->limit(3)
             ->get();
 
         $liveEvent = Event::query()
-            ->with(['community', 'place'])
-            ->withCount('bookings as participant_count')
-            ->withMin('ticketTypes as starting_price', 'price')
+            ->with(['community', 'place', 'ticketTypes'])
             ->forStatus('ongoing')
-            ->latest('starts_at')
+            ->orderBy('starts_at', 'desc')
             ->first();
 
         $communities = Community::query()
             ->with('children')
             ->whereNotNull('parent_id')
-            ->latest()
+            ->orderBy('created_at', 'desc')
             ->limit(3)
             ->get();
 
@@ -48,10 +45,9 @@ class LandingController extends Controller
             ->with([
                 'community',
                 'event' => fn ($query) => $query
-                    ->with(['community', 'place'])
-                    ->withMin('ticketTypes as starting_price', 'price'),
+                    ->with(['community', 'place', 'ticketTypes']),
             ])
-            ->latest()
+            ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
 
@@ -95,10 +91,8 @@ class LandingController extends Controller
     {
         $activityCounts = Event::query()
             ->forStatus('upcoming')
-            ->select('activity_type')
-            ->selectRaw('count(*) as aggregate')
-            ->groupBy('activity_type')
-            ->pluck('aggregate', 'activity_type');
+            ->get(['activity_type'])
+            ->countBy('activity_type');
 
         return collect(Event::ACTIVITY_LABELS)
             ->map(fn (string $label, string $type): array => [

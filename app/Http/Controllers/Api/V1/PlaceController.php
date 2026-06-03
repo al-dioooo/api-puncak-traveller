@@ -21,7 +21,7 @@ class PlaceController extends Controller
             Place::query()
                 ->with('community')
                 ->when($request->string('community')->isNotEmpty(), fn ($query) => $query->whereHas('community', fn ($community) => $community->where('slug', $request->string('community')->toString())))
-                ->latest()
+                ->orderBy('created_at', 'desc')
                 ->paginate($perPage)
         );
     }

@@ -11,6 +11,7 @@ use App\Models\TicketType;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -32,10 +33,7 @@ class EventController extends Controller
 
         $perPage = max(1, min((int) ($validated['per_page'] ?? 12), 50));
         $query = Event::query()
-            ->with(['community', 'place', 'ticketTypes'])
-            ->withMin('ticketTypes as starting_price', 'price')
-            ->withSum('ticketTypes as ticket_quantity_sum', 'quantity')
-            ->withSum('ticketTypes as ticket_sold_sum', 'sold');
+            ->with(['community', 'place', 'ticketTypes']);
 
         if (($validated['status'] ?? 'all') !== 'all') {
             $query->forStatus($validated['status']);
@@ -63,18 +61,36 @@ class EventController extends Controller
 
         $now = now();
 
-        $query->orderByRaw(
-            'case when starts_at > ? then 0 when ends_at < ? then 2 else 1 end',
-            [$now, $now],
-        );
-
-        match ($validated['sort'] ?? 'date') {
-            'price' => $query->orderBy('starting_price')->orderBy('starts_at'),
-            'spots' => $query->orderByRaw('(coalesce(ticket_quantity_sum, 0) - coalesce(ticket_sold_sum, 0)) desc')->orderBy('starts_at'),
-            default => $query->latest('created_at')->latest('id'),
+        $events = match ($validated['sort'] ?? 'date') {
+            'price' => $query->get()
+                ->sortBy(fn (Event $event): array => [
+                    $event->ticketTypes->min('price') ?? PHP_INT_MAX,
+                    $event->starts_at?->timestamp ?? PHP_INT_MAX,
+                ])
+                ->values(),
+            'spots' => $query->get()
+                ->sortBy(fn (Event $event): array => [
+                    -1 * $event->ticketTypes->sum(fn (TicketType $ticketType): int => $ticketType->remaining),
+                    $event->starts_at?->timestamp ?? PHP_INT_MAX,
+                ])
+                ->values(),
+            default => $query->get()
+                ->sortBy(fn (Event $event): array => [
+                    $this->statusSortRank($event, $now),
+                    -1 * ($event->created_at?->timestamp ?? 0),
+                    (string) $event->id,
+                ])
+                ->values(),
         };
 
-        $paginator = $query->paginate($perPage);
+        $page = (int) ($validated['page'] ?? 1);
+        $paginator = new LengthAwarePaginator(
+            $events->forPage($page, $perPage)->values(),
+            $events->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
 
         return response()->json([
             'data' => EventResource::collection($paginator->getCollection())->resolve($request),
@@ -88,7 +104,20 @@ class EventController extends Controller
 
     public function show(Event $event): EventResource
     {
-        return new EventResource($event->load(['community', 'place', 'ticketTypes'])->loadMin('ticketTypes as starting_price', 'price'));
+        return new EventResource($event->load(['community', 'place', 'ticketTypes']));
+    }
+
+    private function statusSortRank(Event $event, mixed $now): int
+    {
+        if ($event->starts_at?->gt($now)) {
+            return 0;
+        }
+
+        if ($event->ends_at?->lt($now)) {
+            return 2;
+        }
+
+        return 1;
     }
 
     public function store(UpsertEventRequest $request): JsonResponse

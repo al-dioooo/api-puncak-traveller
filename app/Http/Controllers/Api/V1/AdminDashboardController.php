@@ -20,10 +20,10 @@ class AdminDashboardController extends Controller
                     'upcomingEvents' => Event::query()->where('starts_at', '>', now())->count(),
                     'bookingsCount' => Booking::query()->where('created_at', '>=', $thirtyDaysAgo)->count(),
                     'ticketsSold' => (int) Booking::query()
+                        ->with('items')
                         ->where('created_at', '>=', $thirtyDaysAgo)
-                        ->withSum('items as tickets_sum', 'quantity')
                         ->get()
-                        ->sum('tickets_sum'),
+                        ->sum(fn (Booking $booking): int => $booking->items->sum('quantity')),
                     'revenue' => (int) Booking::query()
                         ->where('created_at', '>=', $thirtyDaysAgo)
                         ->whereIn('payment_status', [Booking::PAYMENT_PAID, Booking::PAYMENT_REFUNDED])
@@ -64,7 +64,7 @@ class AdminDashboardController extends Controller
     {
         return Booking::query()
             ->with(['user', 'event'])
-            ->latest()
+            ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get()
             ->map(fn (Booking $booking): array => [
@@ -89,7 +89,7 @@ class AdminDashboardController extends Controller
         return Event::query()
             ->with('ticketTypes')
             ->where('starts_at', '>', now())
-            ->orderBy('starts_at')
+            ->orderBy('starts_at', 'asc')
             ->limit(5)
             ->get()
             ->map(function (Event $event): array {
