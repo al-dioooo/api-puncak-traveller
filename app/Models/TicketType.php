@@ -5,9 +5,9 @@ namespace App\Models;
 use Database\Factories\TicketTypeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use MongoDB\Laravel\Eloquent\Model;
 
 #[Fillable(['event_id', 'public_id', 'name', 'description', 'price', 'currency', 'quantity', 'sold', 'capacity_label', 'max_per_user'])]
 class TicketType extends Model

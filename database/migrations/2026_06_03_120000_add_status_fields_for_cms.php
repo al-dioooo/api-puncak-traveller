@@ -12,11 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('status')->default('active')->after('role')->index();
+            $table->string('status')->default('active')->index();
         });
 
         Schema::table('bookings', function (Blueprint $table) {
-            $table->string('payment_status')->default('pending')->after('status')->index();
+            $table->string('payment_status')->default('pending')->index();
         });
     }
 

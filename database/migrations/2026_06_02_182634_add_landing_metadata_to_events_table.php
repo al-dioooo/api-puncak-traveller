@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('events', function (Blueprint $table) {
-            $table->string('activity_type')->default('trail_run')->after('description');
-            $table->string('distance_label')->nullable()->after('activity_type');
+            $table->string('activity_type')->default('trail_run');
+            $table->string('distance_label')->nullable();
 
             $table->index(['activity_type', 'starts_at']);
         });

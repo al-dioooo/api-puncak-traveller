@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('communities', function (Blueprint $table) {
-            $table->string('image_path')->nullable()->after('description');
-            $table->unsignedInteger('member_count')->default(0)->after('image_path');
+            $table->string('image_path')->nullable();
+            $table->unsignedInteger('member_count')->default(0);
         });
     }
 

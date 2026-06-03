@@ -13,9 +13,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role')->default('member')->after('email')->index();
-            $table->string('google_id')->nullable()->after('role')->unique();
-            $table->string('avatar')->nullable()->after('google_id');
+            $table->string('role')->default('member')->index();
+            $table->string('google_id')->nullable();
+            $table->string('avatar')->nullable();
+
+            DB::getDriverName() === 'mongodb'
+                ? $table->unique('google_id', null, null, ['partialFilterExpression' => ['google_id' => ['$type' => 'string']]])
+                : $table->unique('google_id');
         });
 
         if (DB::getDriverName() === 'mysql') {

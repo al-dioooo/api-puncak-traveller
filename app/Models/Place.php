@@ -5,9 +5,9 @@ namespace App\Models;
 use Database\Factories\PlaceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use MongoDB\Laravel\Eloquent\Model;
 
 #[Fillable(['community_id', 'name', 'lat', 'lng', 'description'])]
 class Place extends Model

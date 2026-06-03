@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('events', function (Blueprint $table) {
-            $table->string('publication_status')->default('published')->after('ends_at')->index();
+            $table->string('publication_status')->default('published')->index();
         });
     }
 
