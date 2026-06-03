@@ -214,6 +214,36 @@ class BookingController extends Controller
         ]);
     }
 
+    public function syncPaymentStatus(
+        Request $request,
+        Booking $booking,
+        MidtransSnapService $midtrans,
+        BookingPaymentService $payments
+    ): JsonResponse {
+        abort_unless($booking->user()->is($request->user()) || $request->user()->role === User::ROLE_ADMIN, 403);
+
+        $orderId = $booking->midtrans_order_id ?: $booking->reference;
+
+        if ($booking->payment_provider !== 'midtrans' || ! $orderId) {
+            throw new ConflictHttpException('Booking does not have a Midtrans payment to sync.');
+        }
+
+        $payload = $midtrans->getTransactionStatus($orderId);
+        $booking = $payments->applyMidtransStatus(
+            $midtrans->bookingFromPayload($payload),
+            $payload
+        );
+
+        return response()->json([
+            'message' => 'Payment status synced successfully.',
+            'data' => [
+                'reference' => $booking->reference,
+                'status' => $booking->status,
+                'paymentStatus' => $booking->payment_status,
+            ],
+        ]);
+    }
+
     private function ensureSnapTransaction(
         Booking $booking,
         MidtransSnapService $midtrans,
@@ -370,6 +400,7 @@ class BookingController extends Controller
             'date' => $event?->full_date_label ?? $event?->starts_at?->timezone('Asia/Jakarta')->format('D, j M Y - H:i'),
             'location' => $event?->location ?? $event?->place?->name ?? 'Puncak region',
             'reference' => $booking->reference,
+            'paymentStatus' => $booking->payment_status,
             'ticketLabel' => 'Tickets '.$ticketCount.($ticketNames ? ' - '.$ticketNames : ''),
             'primaryAction' => $primaryAction,
             'primaryHref' => '/account',

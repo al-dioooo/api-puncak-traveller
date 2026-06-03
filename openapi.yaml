@@ -578,6 +578,39 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/ValidationError"
+  /api/v1/bookings/{booking}/payment-status/sync:
+    post:
+      tags: [Bookings]
+      operationId: syncBookingMidtransPaymentStatus
+      summary: Sync a booking payment status from Midtrans Get Status API.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: Payment status synced.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, data]
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      reference:
+                        type: string
+                      status:
+                        type: string
+                      paymentStatus:
+                        type: string
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Booking does not have a Midtrans payment to sync, or amount does not match booking total.
   /api/v1/payments/midtrans/notification:
     post:
       tags: [Bookings]

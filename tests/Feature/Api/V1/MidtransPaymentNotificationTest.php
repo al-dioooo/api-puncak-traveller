@@ -9,6 +9,8 @@ use App\Models\Place;
 use App\Models\TicketType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class MidtransPaymentNotificationTest extends TestCase
@@ -66,6 +68,39 @@ class MidtransPaymentNotificationTest extends TestCase
         $payload['signature_key'] = 'invalid-signature';
 
         $this->postJson(route('api.v1.payments.midtrans.notification'), $payload)
+            ->assertForbidden();
+
+        $this->assertSame(Booking::PAYMENT_PENDING, $booking->refresh()->payment_status);
+    }
+
+    public function test_booking_owner_can_sync_paid_midtrans_status(): void
+    {
+        [$booking] = $this->createPendingMidtransBooking();
+        Sanctum::actingAs($booking->user);
+
+        config()->set('services.midtrans.status_api_base_url', 'https://api.sandbox.midtrans.com/v2');
+        Http::fake([
+            'https://api.sandbox.midtrans.com/v2/PTR-26-MIDTRS/status' => Http::response($this->signedPayload($booking, [
+                'transaction_status' => 'settlement',
+                'status_code' => '200',
+            ])),
+        ]);
+
+        $this->postJson(route('api.v1.bookings.payment-status.sync', $booking))
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_CONFIRMED)
+            ->assertJsonPath('data.paymentStatus', Booking::PAYMENT_PAID);
+
+        $this->assertSame(Booking::PAYMENT_PAID, $booking->refresh()->payment_status);
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://api.sandbox.midtrans.com/v2/PTR-26-MIDTRS/status');
+    }
+
+    public function test_booking_payment_sync_is_limited_to_booking_owner(): void
+    {
+        [$booking] = $this->createPendingMidtransBooking();
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->postJson(route('api.v1.bookings.payment-status.sync', $booking))
             ->assertForbidden();
 
         $this->assertSame(Booking::PAYMENT_PENDING, $booking->refresh()->payment_status);

@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Booking;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class MidtransSnapService
 {
@@ -72,6 +74,49 @@ class MidtransSnapService
         ]));
 
         return hash_equals($expected, $signature);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getTransactionStatus(string $orderId): array
+    {
+        $serverKey = (string) config('services.midtrans.server_key');
+
+        if ($serverKey === '') {
+            throw new RuntimeException('Midtrans server key is not configured.');
+        }
+
+        $baseUrl = rtrim((string) config('services.midtrans.status_api_base_url'), '/');
+
+        return Http::withBasicAuth($serverKey, '')
+            ->acceptJson()
+            ->get($baseUrl.'/'.rawurlencode($orderId).'/status')
+            ->throw()
+            ->json();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function bookingFromPayload(array $payload): Booking
+    {
+        $booking = Booking::query()
+            ->where('midtrans_order_id', (string) ($payload['order_id'] ?? ''))
+            ->orWhere('reference', (string) ($payload['order_id'] ?? ''))
+            ->first();
+
+        if ($booking === null) {
+            throw new NotFoundHttpException('Booking not found for Midtrans order.');
+        }
+
+        $grossAmount = (int) round((float) ($payload['gross_amount'] ?? 0));
+
+        if ($grossAmount !== (int) $booking->total) {
+            throw new ConflictHttpException('Midtrans transaction amount does not match booking total.');
+        }
+
+        return $booking;
     }
 
     /**

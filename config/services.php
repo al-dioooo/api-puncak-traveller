@@ -41,6 +41,7 @@ return [
         'notification_url' => env('MIDTRANS_NOTIFICATION_URL'),
         'snap_api_url' => env('MIDTRANS_SNAP_API_URL', 'https://app.sandbox.midtrans.com/snap/v1/transactions'),
         'snap_js_url' => env('MIDTRANS_SNAP_JS_URL', 'https://app.sandbox.midtrans.com/snap/snap.js'),
+        'status_api_base_url' => env('MIDTRANS_STATUS_API_BASE_URL', 'https://api.sandbox.midtrans.com/v2'),
     ],
 
     'slack' => [

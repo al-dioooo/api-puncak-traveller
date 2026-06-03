@@ -58,6 +58,7 @@ Route::prefix('v1')
             Route::apiResource('bookings', BookingController::class)->only(['index', 'show']);
             Route::post('bookings', [BookingController::class, 'store'])->name('bookings.store');
             Route::post('bookings/{booking:reference}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+            Route::post('bookings/{booking:reference}/payment-status/sync', [BookingController::class, 'syncPaymentStatus'])->name('bookings.payment-status.sync');
             Route::post('bookings/{booking:reference}/refund', [BookingController::class, 'refund'])
                 ->middleware('admin')
                 ->name('bookings.refund');

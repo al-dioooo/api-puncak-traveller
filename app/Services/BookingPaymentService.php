@@ -11,6 +11,21 @@ class BookingPaymentService
     /**
      * @param  array<string, mixed>  $payload
      */
+    public function applyMidtransStatus(Booking $booking, array $payload): Booking
+    {
+        return match ((string) ($payload['transaction_status'] ?? '')) {
+            'settlement' => $this->markPaid($booking, $payload),
+            'capture' => $this->applyMidtransCaptureStatus($booking, $payload),
+            'pending' => $this->markPending($booking, $payload),
+            'deny', 'cancel', 'expire', 'failure' => $this->markFailed($booking, 'Midtrans payment did not complete.', $payload),
+            'refund', 'partial_refund' => $this->markRefunded($booking, $payload, 'Refunded by Midtrans.'),
+            default => $this->markPending($booking, $payload),
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
     public function markPending(Booking $booking, array $payload = []): Booking
     {
         return DB::transaction(function () use ($booking, $payload): Booking {
@@ -122,6 +137,18 @@ class BookingPaymentService
             ->with(['items.ticketType'])
             ->lockForUpdate()
             ->firstOrFail();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function applyMidtransCaptureStatus(Booking $booking, array $payload): Booking
+    {
+        return match ((string) ($payload['fraud_status'] ?? 'accept')) {
+            'accept' => $this->markPaid($booking, $payload),
+            'deny' => $this->markFailed($booking, 'Midtrans payment was denied by fraud detection.', $payload),
+            default => $this->markPending($booking, $payload),
+        };
     }
 
     private function releaseStock(Booking $booking): void
