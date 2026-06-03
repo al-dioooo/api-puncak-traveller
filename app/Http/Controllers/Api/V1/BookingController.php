@@ -6,13 +6,16 @@ use App\Actions\CreateBooking;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CreateBookingRequest;
 use App\Http\Resources\BookingResource;
+use App\Mail\BookingReceiptMail;
 use App\Models\Booking;
 use App\Models\Event;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -154,6 +157,41 @@ class BookingController extends Controller
                 'reference' => $booking->reference,
                 'status' => Booking::STATUS_REFUNDED,
             ],
+        ]);
+    }
+
+    public function resendReceipt(Booking $booking): JsonResponse
+    {
+        $booking->load(['user', 'event', 'items.ticketType']);
+        $recipient = $booking->user?->email ?? $booking->attendee_email;
+
+        if (! $recipient) {
+            throw new ConflictHttpException('Booking does not have a receipt email address.');
+        }
+
+        Mail::to($recipient)->send(new BookingReceiptMail($booking));
+
+        return response()->json([
+            'message' => 'Booking receipt resent successfully.',
+            'data' => [
+                'reference' => $booking->reference,
+                'resentAt' => now()->toIso8601String(),
+            ],
+        ]);
+    }
+
+    public function ticket(Booking $booking): Response
+    {
+        $booking->load(['user', 'event', 'items.ticketType']);
+        $filename = str($booking->reference)
+            ->replaceMatches('/[^A-Za-z0-9_-]+/', '-')
+            ->trim('-')
+            ->append('-ticket.html')
+            ->toString();
+
+        return response(BookingReceiptMail::renderHtml($booking), 200, [
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Type' => 'text/html; charset=UTF-8',
         ]);
     }
 

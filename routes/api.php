@@ -84,6 +84,8 @@ Route::prefix('v1')
             Route::delete('galleries/{gallery}', [GalleryController::class, 'destroy'])->name('galleries.destroy');
             Route::post('galleries/bulk-delete', [GalleryController::class, 'bulkDestroy'])->name('galleries.bulk-destroy');
 
+            Route::post('bookings/{booking:reference}/resend-receipt', [BookingController::class, 'resendReceipt'])->name('bookings.resend-receipt');
+            Route::get('bookings/{booking:reference}/ticket', [BookingController::class, 'ticket'])->name('bookings.ticket');
             Route::patch('bookings/{booking:reference}/payment-status', [BookingController::class, 'updatePaymentStatus'])->name('bookings.payment-status.update');
         });
     });

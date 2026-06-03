@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Api\V1;
 
+use App\Mail\BookingReceiptMail;
 use App\Models\Booking;
 use App\Models\Event;
 use App\Models\TicketType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -58,6 +60,91 @@ class AdminBookingEndpointTest extends TestCase
             ->assertJsonPath('data.status', Booking::STATUS_REFUNDED);
 
         $this->assertSame(0, $ticketType->refresh()->sold);
+    }
+
+    public function test_admin_resends_booking_receipt_email(): void
+    {
+        Mail::fake();
+
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $member = User::factory()->create(['email' => 'alex@example.com']);
+        [$event, $ticketType] = $this->createEventWithTicket();
+        $booking = $this->createBooking($member, $event, $ticketType, 'PTR-RECEIPT');
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson(route('api.v1.bookings.resend-receipt', $booking))
+            ->assertOk()
+            ->assertJsonPath('data.reference', 'PTR-RECEIPT')
+            ->assertJsonStructure(['data' => ['resentAt']]);
+
+        Mail::assertSent(BookingReceiptMail::class, fn (BookingReceiptMail $mail): bool => $mail->hasTo('alex@example.com'));
+    }
+
+    public function test_member_cannot_resend_booking_receipt_email(): void
+    {
+        Mail::fake();
+
+        $member = User::factory()->create(['email' => 'alex@example.com']);
+        [$event, $ticketType] = $this->createEventWithTicket();
+        $booking = $this->createBooking($member, $event, $ticketType, 'PTR-MEMBER-RECEIPT');
+
+        Sanctum::actingAs($member);
+
+        $this->postJson(route('api.v1.bookings.resend-receipt', $booking))
+            ->assertForbidden();
+
+        Mail::assertNothingSent();
+    }
+
+    public function test_admin_downloads_booking_ticket(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $member = User::factory()->create(['name' => 'Alex Puncak', 'email' => 'alex@example.com']);
+        [$event, $ticketType] = $this->createEventWithTicket();
+        $booking = $this->createBooking($member, $event, $ticketType, 'PTR-TICKET');
+
+        Sanctum::actingAs($admin);
+
+        $response = $this->get(route('api.v1.bookings.ticket', $booking));
+
+        $response
+            ->assertOk()
+            ->assertHeader('Content-Type', 'text/html; charset=UTF-8')
+            ->assertSee('PTR-TICKET')
+            ->assertSee('Alex Puncak')
+            ->assertSee('General');
+
+        $this->assertStringContainsString('attachment', $response->headers->get('Content-Disposition', ''));
+        $this->assertStringContainsString('PTR-TICKET-ticket.html', $response->headers->get('Content-Disposition', ''));
+    }
+
+    public function test_payment_status_update_is_admin_only(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $member = User::factory()->create();
+        [$event, $ticketType] = $this->createEventWithTicket();
+        $booking = $this->createBooking($member, $event, $ticketType, 'PTR-STATUS');
+
+        Sanctum::actingAs($member);
+
+        $this->patchJson(route('api.v1.bookings.payment-status.update', $booking), [
+            'payment_status' => Booking::PAYMENT_PENDING,
+        ])->assertForbidden();
+
+        Sanctum::actingAs($admin);
+
+        $this->patchJson(route('api.v1.bookings.payment-status.update', $booking), [
+            'payment_status' => Booking::PAYMENT_PENDING,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.paymentStatus', Booking::PAYMENT_PENDING)
+            ->assertJsonPath('data.status', Booking::STATUS_PENDING);
+
+        $booking->refresh();
+
+        $this->assertSame(Booking::PAYMENT_PENDING, $booking->payment_status);
+        $this->assertSame(Booking::STATUS_PENDING, $booking->status);
     }
 
     /**

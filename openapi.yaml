@@ -477,6 +477,68 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           description: Booking cannot be refunded from its current status.
+  /api/v1/bookings/{booking}/resend-receipt:
+    post:
+      tags: [Bookings]
+      operationId: resendAdminBookingReceipt
+      summary: Resend a booking receipt email as an administrator.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: Receipt email sent.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Booking does not have a deliverable receipt email address.
+  /api/v1/bookings/{booking}/ticket:
+    get:
+      tags: [Bookings]
+      operationId: downloadAdminBookingTicket
+      summary: Download a booking ticket document as an administrator.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: Downloadable ticket document.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Attachment filename for the ticket document.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/bookings/{booking}/payment-status:
+    patch:
+      tags: [Bookings]
+      operationId: updateAdminBookingPaymentStatus
+      summary: Update booking payment/status as an administrator.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_status]
+              properties:
+                payment_status:
+                  type: string
+                  enum: [pending, paid, failed, refunded]
+      responses:
+        "200":
+          description: Payment status updated.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
   /api/v1/events/{event}/bookings:
     post:
       tags: [Bookings]
