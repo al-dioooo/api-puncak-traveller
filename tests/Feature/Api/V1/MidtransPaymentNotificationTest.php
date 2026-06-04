@@ -101,7 +101,8 @@ class MidtransPaymentNotificationTest extends TestCase
         Sanctum::actingAs(User::factory()->create());
 
         $this->postJson(route('api.v1.bookings.payment-status.sync', $booking))
-            ->assertForbidden();
+            ->assertForbidden()
+            ->assertJsonPath('message', 'You are not allowed to refresh this booking payment status.');
 
         $this->assertSame(Booking::PAYMENT_PENDING, $booking->refresh()->payment_status);
     }

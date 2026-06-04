@@ -19,6 +19,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Throwable;
 
@@ -226,7 +227,9 @@ class BookingController extends Controller
         MidtransSnapService $midtrans,
         BookingPaymentService $payments
     ): JsonResponse {
-        abort_unless($booking->user()->is($request->user()) || $request->user()->role === User::ROLE_ADMIN, 403);
+        if (! $this->canAccessBooking($request, $booking)) {
+            throw new AccessDeniedHttpException('You are not allowed to refresh this booking payment status.');
+        }
 
         $orderId = $booking->midtrans_order_id ?: $booking->reference;
 
@@ -248,6 +251,14 @@ class BookingController extends Controller
                 'paymentStatus' => $booking->payment_status,
             ],
         ]);
+    }
+
+    private function canAccessBooking(Request $request, Booking $booking): bool
+    {
+        $user = $request->user();
+
+        return $user !== null
+            && ($booking->user()->is($user) || $user->role === User::ROLE_ADMIN);
     }
 
     private function ensureSnapTransaction(
