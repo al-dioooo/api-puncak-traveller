@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use MongoDB\Laravel\Eloquent\Model;
 
-#[Fillable(['community_id', 'name', 'lat', 'lng', 'description'])]
+#[Fillable(['community_id', 'name', 'lat', 'lng', 'description', 'image_path', 'image_alt'])]
 class Place extends Model
 {
     /** @use HasFactory<PlaceFactory> */

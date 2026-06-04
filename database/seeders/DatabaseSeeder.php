@@ -28,29 +28,80 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(AdminUserSeeder::class);
 
-        $rootCommunity = Community::query()->updateOrCreate(
-            ['slug' => 'puncak-travellers'],
-            [
-                'name' => 'Puncak Travellers',
-                'description' => 'Healthy highland adventures across West Java.',
-                'image_path' => '/landing/community-runners.jpg',
-                'member_count' => 18400,
-            ]
-        );
-
-        $puncakRunners = Community::query()->updateOrCreate(
-            ['slug' => 'puncak-runners'],
-            [
-                'parent_id' => $rootCommunity->id,
+        $communitySeedData = [
+            'puncak-menginap' => [
+                'name' => 'Puncak Menginap',
+                'description' => 'Curated villas, cabins, and cool-weather stays for slow highland weekends.',
+                'image' => 'puncak-menginap.jpg',
+                'member_count' => 5200,
+            ],
+            'puncak-runners' => [
                 'name' => 'Puncak Runners',
-                'description' => 'Trail and fun-run crew for sunrise starts.',
-                'image_path' => '/landing/community-runners.jpg',
+                'description' => 'Trail and road-running crew for sunrise starts across the Puncak ridge.',
+                'image' => 'puncak-runners.jpg',
                 'member_count' => 3200,
-            ]
-        );
+            ],
+            'puncak-in' => [
+                'name' => 'Puncak In',
+                'description' => 'Small-group campouts, bonfires, and outdoor gatherings in the highlands.',
+                'image' => 'puncak-in.jpg',
+                'member_count' => 1400,
+            ],
+        ];
+
+        $communities = [];
+
+        foreach ($communitySeedData as $slug => $communityData) {
+            $storagePath = $this->copySeedAsset('communities', $communityData['image']);
+
+            $communities[$slug] = Community::query()->updateOrCreate(
+                ['slug' => $slug],
+                [
+                    'parent_id' => null,
+                    'name' => $communityData['name'],
+                    'description' => $communityData['description'],
+                    'image_path' => $storagePath,
+                    'member_count' => $communityData['member_count'],
+                ]
+            );
+        }
+
+        $places = [];
+        $placeSeedData = [
+            ['lembah-pinang-villa', 'Lembah Pinang Villa', -6.6971000, 106.9924000, 'A warm timber villa facing tea terraces and morning mist.', 'lembah-pinang-villa.jpg'],
+            ['cibodas-glass-lodge', 'Cibodas Glass Lodge', -6.7382000, 107.0031000, 'A glass-fronted lodge for small groups who want sunrise views from bed.', 'cibodas-glass-lodge.jpg'],
+            ['bukit-embun-cabin', 'Bukit Embun Cabin', -6.7093000, 106.9845000, 'A compact A-frame cabin tucked beside pine trees and quiet footpaths.', 'bukit-embun-cabin.jpg'],
+            ['tea-valley-residence', 'Tea Valley Residence', -6.6864000, 106.9762000, 'A family-friendly residence with a broad lawn and mountain backdrop.', 'tea-valley-residence.jpg'],
+            ['ciloto-family-villa', 'Ciloto Family Villa', -6.7165000, 107.0127000, 'A row of bright villas near Ciloto for weekend family stays.', 'ciloto-family-villa.jpg'],
+            ['riverside-pine-house', 'Riverside Pine House', -6.7248000, 106.9653000, 'A quiet pine house with open decks, cool air, and river sound.', 'riverside-pine-house.jpg'],
+            ['meadow-view-cottage', 'Meadow View Cottage', -6.7042000, 106.9559000, 'A cottage overlooking open meadows and layered Puncak hills.', 'meadow-view-cottage.jpg'],
+        ];
+
+        foreach ($placeSeedData as [$slug, $name, $lat, $lng, $description, $imageFile]) {
+            $storagePath = $this->copySeedAsset('places', $imageFile);
+
+            $places[$slug] = Place::query()->updateOrCreate(
+                ['name' => $name],
+                [
+                    'community_id' => $communities['puncak-menginap']->id,
+                    'lat' => $lat,
+                    'lng' => $lng,
+                    'description' => $description,
+                    'image_path' => $storagePath,
+                    'image_alt' => $name.' in the Puncak highlands',
+                ]
+            );
+        }
+
+        Place::query()
+            ->whereIn('community_id', [$communities['puncak-runners']->id, $communities['puncak-in']->id])
+            ->delete();
 
         $events = [
+            ['community' => 'puncak-menginap', 'place' => 'lembah-pinang-villa', 'id' => 'evt_stay_001', 'slug' => 'puncak-menginap-open-house', 'title' => 'Puncak Menginap Open House', 'category' => 'Stay Tour', 'activity' => 'wellness', 'starts_at' => '2026-06-20 10:00:00', 'ends_at' => '2026-06-20 16:00:00', 'date_label' => 'Sat, 20 Jun - 10:00', 'full_date_label' => 'Saturday, 20 June 2026', 'time_label' => 'Open house 10:00 WIB', 'location' => 'Lembah Pinang Villa', 'region' => 'Bogor, West Java', 'price_label' => 'From Rp 75K', 'spots_label' => '40 spots left', 'cover_image' => 'puncak-menginap-open-house.jpg', 'image_alt' => 'Guests touring a warm highland villa in Puncak', 'distance_label' => 'Villa Tour', 'tickets' => [['id' => 'tour-pass', 'name' => 'Tour Pass', 'description' => 'Villa tour and welcome drink', 'price' => 75000, 'stock' => 40, 'capacity' => '40 left']]],
+            ['community' => 'puncak-menginap', 'place' => 'cibodas-glass-lodge', 'id' => 'evt_stay_002', 'slug' => 'villa-hosting-workshop', 'title' => 'Villa Hosting Workshop', 'category' => 'Workshop', 'activity' => 'wellness', 'starts_at' => '2026-07-12 09:00:00', 'ends_at' => '2026-07-12 13:00:00', 'date_label' => 'Sun, 12 Jul - 09:00', 'full_date_label' => 'Sunday, 12 July 2026', 'time_label' => 'Workshop 09:00 WIB', 'location' => 'Cibodas Glass Lodge', 'region' => 'Bogor, West Java', 'price_label' => 'From Rp 125K', 'spots_label' => '24 spots left', 'cover_image' => 'villa-hosting-workshop.jpg', 'image_alt' => 'Highland villa hosts preparing a guest workshop', 'distance_label' => 'Hosting', 'tickets' => [['id' => 'workshop', 'name' => 'Workshop Seat', 'description' => 'Workshop access and lunch', 'price' => 125000, 'stock' => 24, 'capacity' => '24 left']]],
             [
+                'community' => 'puncak-runners',
                 'id' => 'evt_001',
                 'slug' => 'puncak-trail-run-2026',
                 'title' => 'Puncak Trail Run 2026',
@@ -65,7 +116,7 @@ class DatabaseSeeder extends Seeder
                 'region' => 'West Java',
                 'price_label' => 'From Rp 185K',
                 'spots_label' => '42 spots left',
-                'cover_image' => '/events/puncak-trail-run-2026.jpg',
+                'cover_image' => 'puncak-trail-run-2026.jpg',
                 'image_alt' => 'Trail runners crossing a misty highland ridge near Bogor',
                 'distance_label' => '21K - 10K - 5K',
                 'elevation_label' => '+1,250 m gain',
@@ -98,31 +149,25 @@ class DatabaseSeeder extends Seeder
                     ['id' => '5k', 'name' => '5K Family Fun', 'description' => 'Untimed - open to all ages', 'price' => 95000, 'stock' => 110, 'capacity' => '110 left'],
                 ],
             ],
-            ['id' => 'evt_002', 'slug' => 'sunrise-healthy-walk', 'title' => 'Sunrise Healthy Walk', 'category' => 'Walk', 'activity' => 'walk', 'starts_at' => '2026-06-22 05:30:00', 'ends_at' => '2026-06-22 09:00:00', 'date_label' => 'Sun, 22 Jun - 05:30', 'full_date_label' => 'Sunday, 22 June 2026', 'time_label' => 'Start 05:30 WIB', 'location' => 'Kebun Raya Cibodas', 'region' => 'West Java', 'price_label' => 'From Free', 'spots_label' => '120 spots left', 'cover_image' => '/events/sunrise-healthy-walk.jpg', 'image_alt' => 'A warm sunrise over a quiet mountain walking route', 'distance_label' => '5K', 'tickets' => [['id' => 'general', 'name' => 'General Entry', 'description' => 'Community walk access', 'price' => 0, 'stock' => 120, 'capacity' => '120 left']]],
-            ['id' => 'evt_003', 'slug' => 'highland-camp-bonfire', 'title' => 'Highland Camp & Bonfire', 'category' => 'Camping', 'activity' => 'camping', 'starts_at' => '2026-07-04 15:00:00', 'ends_at' => '2026-07-06 10:00:00', 'date_label' => 'Fri-Sun, 4-6 Jul', 'full_date_label' => 'Friday-Sunday, 4-6 July 2026', 'time_label' => 'Check-in 15:00 WIB', 'location' => 'Ranca Upas, Ciwidey', 'region' => 'West Java', 'price_label' => 'From Rp 320K', 'spots_label' => '18 spots left', 'cover_image' => '/events/highland-camp-bonfire.jpg', 'image_alt' => 'Campers gathering near tents in a green highland campsite', 'distance_label' => 'Weekend Camp', 'tickets' => [['id' => 'weekend-pass', 'name' => 'Weekend pass', 'description' => 'Tent area - bonfire - breakfast', 'price' => 320000, 'stock' => 18, 'capacity' => '18 left']]],
-            ['id' => 'evt_004', 'slug' => 'forest-fun-run-10k', 'title' => 'Forest Fun Run 10K', 'category' => 'Fun Run', 'activity' => 'fun-run', 'starts_at' => now()->subHour()->format('Y-m-d H:i:s'), 'ends_at' => now()->addHours(2)->format('Y-m-d H:i:s'), 'date_label' => 'Today - 07:00', 'full_date_label' => 'Happening today', 'time_label' => 'Started 07:00 WIB', 'location' => 'Taman Hutan Raya, Bandung', 'region' => 'West Java', 'price_label' => 'From Rp 120K', 'spots_label' => 'Sold out', 'cover_image' => '/events/forest-fun-run.jpg', 'image_alt' => 'Runners moving through a forest route during a live event', 'distance_label' => '10K', 'tickets' => [['id' => 'general', 'name' => 'General Entry', 'description' => 'Standard participant access', 'price' => 120000, 'stock' => 0, 'capacity' => 'Sold out']]],
-            ['id' => 'evt_005', 'slug' => 'misty-ridge-hike', 'title' => 'Misty Ridge Hike', 'category' => 'Hike', 'activity' => 'hike', 'starts_at' => '2026-06-28 06:30:00', 'ends_at' => '2026-06-28 12:00:00', 'date_label' => 'Sat, 28 Jun - 06:30', 'full_date_label' => 'Saturday, 28 June 2026', 'time_label' => 'Start 06:30 WIB', 'location' => 'Gunung Papandayan', 'region' => 'West Java', 'price_label' => 'From Rp 150K', 'spots_label' => '30 spots left', 'cover_image' => '/events/misty-ridge-hike.jpg', 'image_alt' => 'A mountain ridge path covered with soft morning mist', 'distance_label' => 'Hike', 'tickets' => [['id' => 'general', 'name' => 'General Entry', 'description' => 'Guided hike access', 'price' => 150000, 'stock' => 30, 'capacity' => '30 left']]],
-            ['id' => 'evt_006', 'slug' => 'mindful-mountain-yoga', 'title' => 'Mindful Mountain Yoga', 'category' => 'Wellness', 'activity' => 'wellness', 'starts_at' => '2026-06-29 07:00:00', 'ends_at' => '2026-06-29 10:00:00', 'date_label' => 'Sun, 29 Jun - 07:00', 'full_date_label' => 'Sunday, 29 June 2026', 'time_label' => 'Start 07:00 WIB', 'location' => 'Bukit Moko, Bandung', 'region' => 'West Java', 'price_label' => 'From Rp 95K', 'spots_label' => '25 spots left', 'cover_image' => '/events/mindful-mountain-yoga.jpg', 'image_alt' => 'A quiet highland view used for morning wellness activities', 'distance_label' => 'Wellness', 'tickets' => [['id' => 'general', 'name' => 'General Entry', 'description' => 'Morning yoga session', 'price' => 95000, 'stock' => 25, 'capacity' => '25 left']]],
-            ['id' => 'evt_007', 'slug' => 'puncak-pass-half-marathon', 'title' => 'Puncak Pass Half Marathon', 'category' => 'Trail Run', 'activity' => 'trail-run', 'starts_at' => '2026-05-11 06:00:00', 'ends_at' => '2026-05-11 10:00:00', 'date_label' => 'Sun, 11 May - 06:00', 'full_date_label' => 'Sunday, 11 May 2026', 'time_label' => 'Finished 08:14 WIB', 'location' => 'Puncak Pass, Cianjur', 'region' => 'West Java', 'price_label' => 'From Rp 200K', 'spots_label' => '480 finishers', 'cover_image' => '/events/puncak-pass-half-marathon.jpg', 'image_alt' => 'A running community gathered on a mountain road', 'distance_label' => '21K', 'recap_href' => '/events/puncak-pass-half-marathon/recap', 'tickets' => [['id' => '21k', 'name' => '21K', 'description' => 'Race entry', 'price' => 200000, 'stock' => 0, 'capacity' => '480 finishers']]],
-            ['id' => 'evt_008', 'slug' => 'lakeside-camp-weekend', 'title' => 'Lakeside Camp Weekend', 'category' => 'Camping', 'activity' => 'camping', 'starts_at' => '2026-04-18 15:00:00', 'ends_at' => '2026-04-20 10:00:00', 'date_label' => 'Apr 18-20', 'full_date_label' => '18-20 April 2026', 'time_label' => 'Weekend camp', 'location' => 'Situ Patenggang', 'region' => 'West Java', 'price_label' => 'From Rp 280K', 'spots_label' => '96 finishers', 'cover_image' => '/events/lakeside-camp-weekend.jpg', 'image_alt' => 'Camping tents in a highland morning field', 'distance_label' => 'Weekend Camp', 'recap_href' => '/events/lakeside-camp-weekend/recap', 'tickets' => [['id' => 'general', 'name' => 'General Entry', 'description' => 'Weekend camp access', 'price' => 280000, 'stock' => 0, 'capacity' => '96 finishers']]],
+            ['community' => 'puncak-runners', 'id' => 'evt_002', 'slug' => 'sunrise-healthy-walk', 'title' => 'Sunrise Healthy Walk', 'category' => 'Walk', 'activity' => 'walk', 'starts_at' => '2026-06-22 05:30:00', 'ends_at' => '2026-06-22 09:00:00', 'date_label' => 'Sun, 22 Jun - 05:30', 'full_date_label' => 'Sunday, 22 June 2026', 'time_label' => 'Start 05:30 WIB', 'location' => 'Kebun Raya Cibodas', 'region' => 'West Java', 'price_label' => 'From Free', 'spots_label' => '120 spots left', 'cover_image' => 'sunrise-healthy-walk.jpg', 'image_alt' => 'A warm sunrise over a quiet mountain walking route', 'distance_label' => '5K', 'tickets' => [['id' => 'general', 'name' => 'General Entry', 'description' => 'Community walk access', 'price' => 0, 'stock' => 120, 'capacity' => '120 left']]],
+            ['community' => 'puncak-runners', 'id' => 'evt_004', 'slug' => 'forest-fun-run-10k', 'title' => 'Forest Fun Run 10K', 'category' => 'Fun Run', 'activity' => 'fun-run', 'starts_at' => now()->subHour()->format('Y-m-d H:i:s'), 'ends_at' => now()->addHours(2)->format('Y-m-d H:i:s'), 'date_label' => 'Today - 07:00', 'full_date_label' => 'Happening today', 'time_label' => 'Started 07:00 WIB', 'location' => 'Taman Hutan Raya, Bandung', 'region' => 'West Java', 'price_label' => 'From Rp 120K', 'spots_label' => 'Sold out', 'cover_image' => 'forest-fun-run-10k.jpg', 'image_alt' => 'Runners moving through a forest route during a live event', 'distance_label' => '10K', 'tickets' => [['id' => 'general', 'name' => 'General Entry', 'description' => 'Standard participant access', 'price' => 120000, 'stock' => 0, 'capacity' => 'Sold out']]],
+            ['community' => 'puncak-runners', 'id' => 'evt_005', 'slug' => 'misty-ridge-hike', 'title' => 'Misty Ridge Hike', 'category' => 'Hike', 'activity' => 'hike', 'starts_at' => '2026-06-28 06:30:00', 'ends_at' => '2026-06-28 12:00:00', 'date_label' => 'Sat, 28 Jun - 06:30', 'full_date_label' => 'Saturday, 28 June 2026', 'time_label' => 'Start 06:30 WIB', 'location' => 'Gunung Papandayan', 'region' => 'West Java', 'price_label' => 'From Rp 150K', 'spots_label' => '30 spots left', 'cover_image' => 'misty-ridge-hike.jpg', 'image_alt' => 'A mountain ridge path covered with soft morning mist', 'distance_label' => 'Hike', 'tickets' => [['id' => 'general', 'name' => 'General Entry', 'description' => 'Guided hike access', 'price' => 150000, 'stock' => 30, 'capacity' => '30 left']]],
+            ['community' => 'puncak-runners', 'id' => 'evt_006', 'slug' => 'mindful-mountain-yoga', 'title' => 'Mindful Mountain Yoga', 'category' => 'Wellness', 'activity' => 'wellness', 'starts_at' => '2026-06-29 07:00:00', 'ends_at' => '2026-06-29 10:00:00', 'date_label' => 'Sun, 29 Jun - 07:00', 'full_date_label' => 'Sunday, 29 June 2026', 'time_label' => 'Start 07:00 WIB', 'location' => 'Bukit Moko, Bandung', 'region' => 'West Java', 'price_label' => 'From Rp 95K', 'spots_label' => '25 spots left', 'cover_image' => 'mindful-mountain-yoga.jpg', 'image_alt' => 'A quiet highland view used for morning wellness activities', 'distance_label' => 'Wellness', 'tickets' => [['id' => 'general', 'name' => 'General Entry', 'description' => 'Morning yoga session', 'price' => 95000, 'stock' => 25, 'capacity' => '25 left']]],
+            ['community' => 'puncak-runners', 'id' => 'evt_007', 'slug' => 'puncak-pass-half-marathon', 'title' => 'Puncak Pass Half Marathon', 'category' => 'Trail Run', 'activity' => 'trail-run', 'starts_at' => '2026-05-11 06:00:00', 'ends_at' => '2026-05-11 10:00:00', 'date_label' => 'Sun, 11 May - 06:00', 'full_date_label' => 'Sunday, 11 May 2026', 'time_label' => 'Finished 08:14 WIB', 'location' => 'Puncak Pass, Cianjur', 'region' => 'West Java', 'price_label' => 'From Rp 200K', 'spots_label' => '480 finishers', 'cover_image' => 'puncak-pass-half-marathon.jpg', 'image_alt' => 'A running community gathered on a mountain road', 'distance_label' => '21K', 'recap_href' => '/events/puncak-pass-half-marathon/recap', 'tickets' => [['id' => '21k', 'name' => '21K', 'description' => 'Race entry', 'price' => 200000, 'stock' => 0, 'capacity' => '480 finishers']]],
+            ['community' => 'puncak-runners', 'id' => 'evt_009', 'slug' => 'tea-valley-relay', 'title' => 'Tea Valley Relay', 'category' => 'Relay', 'activity' => 'trail-run', 'starts_at' => '2026-07-19 06:00:00', 'ends_at' => '2026-07-19 10:30:00', 'date_label' => 'Sun, 19 Jul - 06:00', 'full_date_label' => 'Sunday, 19 July 2026', 'time_label' => 'Relay starts 06:00 WIB', 'location' => 'Cisarua Tea Valley', 'region' => 'West Java', 'price_label' => 'From Rp 165K', 'spots_label' => '60 spots left', 'cover_image' => 'tea-valley-relay.jpg', 'image_alt' => 'Relay runners gathering in a highland tea valley', 'distance_label' => 'Relay', 'tickets' => [['id' => 'team', 'name' => 'Team Relay', 'description' => 'Relay registration per runner', 'price' => 165000, 'stock' => 60, 'capacity' => '60 left']]],
+            ['community' => 'puncak-in', 'id' => 'evt_010', 'slug' => 'highland-campfire-night', 'title' => 'Highland Campfire Night', 'category' => 'Camping', 'activity' => 'camping', 'starts_at' => '2026-07-04 15:00:00', 'ends_at' => '2026-07-05 10:00:00', 'date_label' => 'Sat-Sun, 4-5 Jul', 'full_date_label' => 'Saturday-Sunday, 4-5 July 2026', 'time_label' => 'Check-in 15:00 WIB', 'location' => 'Ranca Upas, Ciwidey', 'region' => 'West Java', 'price_label' => 'From Rp 320K', 'spots_label' => '18 spots left', 'cover_image' => 'highland-campfire-night.jpg', 'image_alt' => 'Travellers gathering around a warm highland campfire', 'distance_label' => 'Campout', 'tickets' => [['id' => 'camp-pass', 'name' => 'Camp Pass', 'description' => 'Tent area, dinner, bonfire, and breakfast', 'price' => 320000, 'stock' => 18, 'capacity' => '18 left']]],
         ];
 
-        foreach ($events as $index => $eventData) {
-            $place = Place::query()->updateOrCreate(
-                ['name' => $eventData['location']],
-                [
-                    'community_id' => $puncakRunners->id,
-                    'lat' => -6.70 + ($index / 100),
-                    'lng' => 106.95 + ($index / 100),
-                    'description' => $eventData['venue_description'] ?? 'A supported Puncak Travellers route in West Java.',
-                ]
-            );
+        foreach ($events as $eventData) {
+            $community = $communities[$eventData['community']];
+            $place = isset($eventData['place']) ? $places[$eventData['place']] : null;
+            $coverImage = $this->copySeedAsset('events', $eventData['cover_image']);
 
             $event = Event::query()->updateOrCreate(
                 ['slug' => $eventData['slug']],
                 [
-                    'community_id' => $puncakRunners->id,
-                    'place_id' => $place->id,
+                    'community_id' => $community->id,
+                    'place_id' => $place?->id,
                     'public_id' => $eventData['id'],
                     'title' => $eventData['title'],
                     'description' => $eventData['summary'][0] ?? $eventData['title'],
@@ -133,7 +178,7 @@ class DatabaseSeeder extends Seeder
                     'elevation_label' => $eventData['elevation_label'] ?? null,
                     'difficulty' => $eventData['difficulty'] ?? 'Friendly pace',
                     'venue_name' => $eventData['venue_name'] ?? $eventData['location'],
-                    'venue_description' => $eventData['venue_description'] ?? 'Full route notes will be shared with registered participants.',
+                    'venue_description' => $eventData['venue_description'] ?? 'Full notes will be shared with registered participants.',
                     'summary' => $eventData['summary'] ?? null,
                     'includes' => $eventData['includes'] ?? null,
                     'schedule' => $eventData['schedule'] ?? null,
@@ -148,7 +193,7 @@ class DatabaseSeeder extends Seeder
                     'region' => $eventData['region'],
                     'price_label' => $eventData['price_label'],
                     'spots_label' => $eventData['spots_label'],
-                    'cover_image' => $eventData['cover_image'],
+                    'cover_image' => $coverImage,
                     'image_alt' => $eventData['image_alt'],
                     'detail_href' => "/events/{$eventData['slug']}",
                     'booking_href' => "/events/{$eventData['slug']}/booking",
@@ -171,6 +216,15 @@ class DatabaseSeeder extends Seeder
                 );
             }
         }
+
+        Event::query()
+            ->whereIn('slug', ['highland-camp-bonfire', 'lakeside-camp-weekend'])
+            ->whereDoesntHave('bookings')
+            ->get()
+            ->each(function (Event $event): void {
+                $event->ticketTypes()->delete();
+                $event->delete();
+            });
 
         $galleryItems = [
             ['summit-push', 'Summit push at dawn', 'Misty Ridge Hike', 'hike', '2026', 'summit-push-at-dawn.jpg', 'Hikers moving toward a summit at dawn'],
@@ -197,7 +251,7 @@ class DatabaseSeeder extends Seeder
             Gallery::query()->updateOrCreate(
                 ['public_id' => $id],
                 [
-                    'community_id' => $puncakRunners->id,
+                    'community_id' => $communities['puncak-runners']->id,
                     'event_id' => null,
                     'title' => $title,
                     'event_label' => $event,
@@ -300,5 +354,19 @@ class DatabaseSeeder extends Seeder
                 'total' => $subtotal + $booking->booking_fee,
             ]);
         }
+    }
+
+    private function copySeedAsset(string $type, string $imageFile): string
+    {
+        $sourcePath = base_path("database/seeders/assets/{$type}/{$imageFile}");
+        $storagePath = "{$type}/demo/{$imageFile}";
+
+        if (! is_file($sourcePath)) {
+            throw new \RuntimeException("Missing seeded {$type} asset: {$sourcePath}");
+        }
+
+        Storage::disk('public')->put($storagePath, file_get_contents($sourcePath));
+
+        return $storagePath;
     }
 }

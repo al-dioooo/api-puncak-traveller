@@ -24,6 +24,10 @@ class CommunityResource extends JsonResource
             'image_path' => $this->image_path,
             'image_url' => $this->publicImageUrl($this->image_path),
             'member_count' => $this->member_count,
+            'places_count' => $this->places_count ?? $this->places()->count(),
+            'events_count' => $this->events_count ?? $this->events()->count(),
+            'placesCount' => $this->places_count ?? $this->places()->count(),
+            'eventsCount' => $this->events_count ?? $this->events()->count(),
             'children' => CommunityResource::collection($this->whenLoaded('children')),
         ];
     }

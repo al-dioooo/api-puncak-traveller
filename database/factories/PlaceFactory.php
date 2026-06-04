@@ -24,6 +24,8 @@ class PlaceFactory extends Factory
             'lat' => fake()->latitude(-6.75, -6.60),
             'lng' => fake()->longitude(106.90, 107.05),
             'description' => fake()->paragraph(),
+            'image_path' => 'places/'.fake()->uuid().'.jpg',
+            'image_alt' => fake()->sentence(),
         ];
     }
 }

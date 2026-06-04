@@ -128,6 +128,90 @@ class PublicApiEndpointTest extends TestCase
             ->assertUnprocessable();
     }
 
+    public function test_communities_index_exposes_mobile_browse_counts(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('communities/demo/puncak-menginap.jpg', 'demo-image-bytes');
+
+        $menginap = Community::factory()->create([
+            'name' => 'Puncak Menginap',
+            'slug' => 'puncak-menginap',
+            'image_path' => 'communities/demo/puncak-menginap.jpg',
+            'member_count' => 5200,
+        ]);
+        $runners = Community::factory()->create([
+            'name' => 'Puncak Runners',
+            'slug' => 'puncak-runners',
+            'member_count' => 3200,
+        ]);
+        Community::factory()->create([
+            'name' => 'Puncak In',
+            'slug' => 'puncak-in',
+            'member_count' => 1400,
+        ]);
+        Community::factory()->create(['slug' => 'puncak-travellers', 'member_count' => 18400]);
+
+        Place::factory()->for($menginap)->create();
+        Event::factory()->for($menginap)->upcoming()->create(['slug' => 'menginap-event']);
+        Event::factory()->for($runners)->upcoming()->create(['slug' => 'runner-event']);
+
+        $this->getJson(route('api.v1.communities.index', ['per_page' => 10]))
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.slug', 'puncak-menginap')
+            ->assertJsonPath('data.0.places_count', 1)
+            ->assertJsonPath('data.0.events_count', 1)
+            ->assertJsonPath('data.0.placesCount', 1)
+            ->assertJsonPath('data.0.eventsCount', 1)
+            ->assertJsonPath('data.0.image_url', '/storage/communities/demo/puncak-menginap.jpg')
+            ->assertJsonPath('data.1.slug', 'puncak-runners')
+            ->assertJsonPath('data.1.places_count', 0)
+            ->assertJsonPath('data.1.events_count', 1)
+            ->assertJsonPath('data.2.slug', 'puncak-in');
+    }
+
+    public function test_events_can_be_filtered_by_community_slug(): void
+    {
+        $runners = Community::factory()->create(['slug' => 'puncak-runners']);
+        $menginap = Community::factory()->create(['slug' => 'puncak-menginap']);
+        Event::factory()->for($runners)->upcoming()->create([
+            'slug' => 'runner-only',
+            'title' => 'Runner Only',
+        ]);
+        Event::factory()->for($menginap)->upcoming()->create([
+            'slug' => 'menginap-only',
+            'title' => 'Menginap Only',
+        ]);
+
+        $this->getJson(route('api.v1.events.index', [
+            'community' => 'puncak-runners',
+            'per_page' => 10,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.slug', 'runner-only');
+    }
+
+    public function test_places_index_exposes_seeded_image_contract(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('places/demo/villa.jpg', 'demo-image-bytes');
+        $community = Community::factory()->create(['slug' => 'puncak-menginap']);
+        Place::factory()->for($community)->create([
+            'name' => 'Seeded Villa',
+            'image_path' => 'places/demo/villa.jpg',
+            'image_alt' => 'Seeded villa in Puncak',
+        ]);
+
+        $this->getJson(route('api.v1.places.index'))
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Seeded Villa')
+            ->assertJsonPath('data.0.image_path', 'places/demo/villa.jpg')
+            ->assertJsonPath('data.0.imageUrl', '/storage/places/demo/villa.jpg')
+            ->assertJsonPath('data.0.image_url', '/storage/places/demo/villa.jpg')
+            ->assertJsonPath('data.0.imageAlt', 'Seeded villa in Puncak');
+    }
+
     public function test_public_clients_can_view_event_details_with_ticket_types(): void
     {
         $event = $this->createEventWithTicket([

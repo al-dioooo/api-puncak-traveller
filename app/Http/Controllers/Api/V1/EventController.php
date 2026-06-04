@@ -26,6 +26,7 @@ class EventController extends Controller
             'q' => ['sometimes', 'nullable', 'string', 'max:120'],
             'status' => ['sometimes', 'nullable', Rule::in(['all', 'upcoming', 'ongoing', 'completed'])],
             'activity' => ['sometimes', 'nullable', Rule::in(['all', ...array_keys(Event::ACTIVITY_LABELS)])],
+            'community' => ['sometimes', 'nullable', 'string', 'max:160'],
             'sort' => ['sometimes', 'nullable', Rule::in(['date', 'price', 'spots'])],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
@@ -43,6 +44,10 @@ class EventController extends Controller
             $query->where(fn ($query) => $query
                 ->where('activity', $validated['activity'])
                 ->orWhere('activity_type', $validated['activity']));
+        }
+
+        if (! empty($validated['community'])) {
+            $query->whereHas('community', fn ($community) => $community->where('slug', $validated['community']));
         }
 
         if (! empty($validated['q'])) {

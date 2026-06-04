@@ -22,6 +22,8 @@ class CommunityController extends Controller
             Community::query()
                 ->with('children')
                 ->whereNull('parent_id')
+                ->whereIn('slug', ['puncak-menginap', 'puncak-runners', 'puncak-in'])
+                ->orderBy('member_count', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->paginate($perPage)
         );
