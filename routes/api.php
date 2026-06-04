@@ -22,11 +22,10 @@ Route::prefix('v1')
     ->group(function (): void {
         Route::get('health', HealthController::class)->name('health');
         Route::get('landing', LandingController::class)->name('landing');
-        Route::middleware('web')->prefix('auth')->as('auth.')->group(function (): void {
+        Route::prefix('auth')->as('auth.')->group(function (): void {
             Route::get('google/redirect', [AuthController::class, 'redirectToGoogle'])->name('google.redirect');
             Route::get('google/callback', [AuthController::class, 'handleGoogleCallback'])->name('google.callback');
-        });
-        Route::prefix('auth')->as('auth.')->group(function (): void {
+            Route::get('mobile/google/callback', [AuthController::class, 'handleGoogleCallback'])->name('mobile.google.callback');
             Route::post('register', [AuthController::class, 'register'])->name('register');
             Route::post('login', [AuthController::class, 'login'])->name('login');
             Route::post('google/exchange', [AuthController::class, 'exchangeGoogleCode'])->name('google.exchange');

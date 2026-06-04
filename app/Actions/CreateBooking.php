@@ -78,7 +78,7 @@ class CreateBooking
 
                 $updated = TicketType::query()
                     ->whereKey($ticketType->id)
-                    ->whereRaw('sold + ? <= quantity', [$quantity])
+                    ->where('sold', '<=', $ticketType->quantity - $quantity)
                     ->increment('sold', $quantity);
 
                 if ($updated === 0) {

@@ -105,19 +105,33 @@ class AuthController extends Controller
 
     public function redirectToGoogle(Request $request): RedirectResponse
     {
+        $returnTo = $request->query('return_to', '/account');
+        $isMobileFlow = is_string($returnTo) && $this->isAllowedMobileCallback($returnTo);
+
         $state = Crypt::encryptString(json_encode([
-            'return_to' => $this->safeReturnPath($request->query('return_to', '/account')),
+            'return_to' => $isMobileFlow ? $returnTo : $this->safeReturnPath($returnTo),
         ], JSON_THROW_ON_ERROR));
 
-        return Socialite::driver('google')
+        $google = Socialite::driver('google')
             ->stateless()
-            ->with(['state' => $state])
-            ->redirect();
+            ->with(['state' => $state]);
+
+        if ($isMobileFlow && config('services.google.mobile_redirect')) {
+            $google->redirectUrl((string) config('services.google.mobile_redirect'));
+        }
+
+        return $google->redirect();
     }
 
     public function handleGoogleCallback(Request $request): RedirectResponse
     {
-        $googleUser = Socialite::driver('google')->stateless()->user();
+        $google = Socialite::driver('google')->stateless();
+
+        if ($this->isMobileGoogleCallback($request) && config('services.google.mobile_redirect')) {
+            $google->redirectUrl((string) config('services.google.mobile_redirect'));
+        }
+
+        $googleUser = $google->user();
 
         $user = User::query()->updateOrCreate(
             ['email' => $googleUser->getEmail()],
@@ -128,22 +142,17 @@ class AuthController extends Controller
             ]
         );
 
-        Auth::login($user, true);
-        $request->session()->regenerate();
-
         $token = $user->createToken('frontend')->plainTextToken;
         $exchangeCode = Str::random(64);
-        $returnTo = $this->returnPathFromOAuthState($request->query('state'));
-        $frontendUrl = rtrim((string) config('app.frontend_url'), '/');
+        $callbackUrl = $this->callbackUrlFromOAuthState($request->query('state'));
 
         Cache::put($this->oauthExchangeCacheKey($exchangeCode), [
             'token' => $token,
             'user_id' => $user->id,
         ], now()->addMinutes(2));
 
-        return redirect()->away($frontendUrl.'/auth/google/callback?'.http_build_query([
+        return redirect()->away($callbackUrl.(str_contains($callbackUrl, '?') ? '&' : '?').http_build_query([
             'code' => $exchangeCode,
-            'return_to' => $returnTo,
         ]));
     }
 
@@ -187,19 +196,51 @@ class AuthController extends Controller
         return $path;
     }
 
-    private function returnPathFromOAuthState(mixed $state): string
+    private function callbackUrlFromOAuthState(mixed $state): string
     {
+        $frontendUrl = rtrim((string) config('app.frontend_url'), '/');
+
         if (! is_string($state) || $state === '') {
-            return '/account';
+            return $frontendUrl.'/auth/google/callback';
         }
 
         try {
             $decoded = json_decode(Crypt::decryptString($state), true, flags: JSON_THROW_ON_ERROR);
         } catch (DecryptException|\JsonException) {
-            return '/account';
+            return $frontendUrl.'/auth/google/callback';
         }
 
-        return $this->safeReturnPath($decoded['return_to'] ?? '/account');
+        $returnTo = $decoded['return_to'] ?? '/account';
+
+        if (! is_string($returnTo) || $returnTo === '') {
+            return $frontendUrl.'/auth/google/callback';
+        }
+
+        if ($this->isAllowedMobileCallback($returnTo)) {
+            return $returnTo;
+        }
+
+        return $frontendUrl.'/auth/google/callback?'.http_build_query([
+            'return_to' => $this->safeReturnPath($returnTo),
+        ]);
+    }
+
+    private function isAllowedMobileCallback(string $returnTo): bool
+    {
+        $parts = parse_url($returnTo);
+
+        if (! is_array($parts)) {
+            return false;
+        }
+
+        return in_array($parts['scheme'] ?? '', ['mobilepuncaktraveller', 'exp'], true)
+            && str_contains($returnTo, '/auth/google/callback');
+    }
+
+    private function isMobileGoogleCallback(Request $request): bool
+    {
+        return $request->routeIs('api.v1.auth.mobile.google.callback')
+            || $request->is('api/v1/auth/mobile/google/callback');
     }
 
     private function oauthExchangeCacheKey(string $code): string

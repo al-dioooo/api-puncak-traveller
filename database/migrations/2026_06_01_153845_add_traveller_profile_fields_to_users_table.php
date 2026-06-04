@@ -17,10 +17,21 @@ return new class extends Migration
             $table->string('google_id')->nullable();
             $table->string('avatar')->nullable();
 
-            DB::getDriverName() === 'mongodb'
-                ? $table->unique('google_id', null, null, ['partialFilterExpression' => ['google_id' => ['$type' => 'string']]])
-                : $table->unique('google_id');
+            if (DB::getDriverName() !== 'mongodb') {
+                $table->unique('google_id');
+            }
         });
+
+        if (DB::getDriverName() === 'mongodb') {
+            DB::connection('mongodb')->getCollection('users')->createIndex(
+                ['google_id' => 1],
+                [
+                    'name' => 'google_id_1',
+                    'unique' => true,
+                    'partialFilterExpression' => ['google_id' => ['$type' => 'string']],
+                ],
+            );
+        }
 
         if (DB::getDriverName() === 'mysql') {
             DB::statement('ALTER TABLE users MODIFY password VARCHAR(255) NULL');

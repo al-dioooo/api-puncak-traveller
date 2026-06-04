@@ -14,7 +14,9 @@ class GoogleOAuthExchangeTest extends TestCase
 
     public function test_google_exchange_code_can_only_be_used_once(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'google_id' => 'google-test-'.Str::uuid()->toString(),
+        ]);
         $code = Str::random(64);
         Cache::put("oauth:google:exchange:{$code}", [
             'token' => 'plain-token',
