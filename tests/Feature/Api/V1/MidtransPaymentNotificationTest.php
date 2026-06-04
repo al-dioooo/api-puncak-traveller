@@ -10,6 +10,7 @@ use App\Models\TicketType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -80,7 +81,7 @@ class MidtransPaymentNotificationTest extends TestCase
 
         config()->set('services.midtrans.status_api_base_url', 'https://api.sandbox.midtrans.com/v2');
         Http::fake([
-            'https://api.sandbox.midtrans.com/v2/PTR-26-MIDTRS/status' => Http::response($this->signedPayload($booking, [
+            'https://api.sandbox.midtrans.com/v2/'.$booking->midtrans_order_id.'/status' => Http::response($this->signedPayload($booking, [
                 'transaction_status' => 'settlement',
                 'status_code' => '200',
             ])),
@@ -92,7 +93,7 @@ class MidtransPaymentNotificationTest extends TestCase
             ->assertJsonPath('data.paymentStatus', Booking::PAYMENT_PAID);
 
         $this->assertSame(Booking::PAYMENT_PAID, $booking->refresh()->payment_status);
-        Http::assertSent(fn ($request): bool => $request->url() === 'https://api.sandbox.midtrans.com/v2/PTR-26-MIDTRS/status');
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://api.sandbox.midtrans.com/v2/'.$booking->midtrans_order_id.'/status');
     }
 
     public function test_booking_payment_sync_is_limited_to_booking_owner(): void
@@ -113,6 +114,7 @@ class MidtransPaymentNotificationTest extends TestCase
     private function createPendingMidtransBooking(): array
     {
         config()->set('services.midtrans.server_key', 'SB-Mid-server-test');
+        $reference = 'PTR-26-'.Str::upper(Str::random(6));
 
         $user = User::factory()->create(['name' => 'Alex Puncak', 'email' => 'alex@example.com']);
         $community = Community::factory()->create();
@@ -125,11 +127,11 @@ class MidtransPaymentNotificationTest extends TestCase
             'sold' => 1,
         ]);
         $booking = Booking::factory()->for($user)->for($event)->create([
-            'reference' => 'PTR-26-MIDTRS',
+            'reference' => $reference,
             'status' => Booking::STATUS_PENDING,
             'payment_status' => Booking::PAYMENT_PENDING,
             'payment_provider' => 'midtrans',
-            'midtrans_order_id' => 'PTR-26-MIDTRS',
+            'midtrans_order_id' => $reference,
             'subtotal' => 185000,
             'booking_fee' => 5000,
             'total' => 190000,

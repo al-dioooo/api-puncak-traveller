@@ -92,7 +92,9 @@ class BookingController extends Controller
 
     public function show(Request $request, Booking $booking): BookingResource|JsonResponse
     {
-        abort_unless($booking->user()->is($request->user()) || $request->user()->role === User::ROLE_ADMIN, 403);
+        if (! $this->canAccessBooking($request, $booking)) {
+            throw new AccessDeniedHttpException('You are not allowed to view this booking.');
+        }
 
         $booking->load(['user', 'event', 'items.ticketType']);
 
@@ -105,7 +107,9 @@ class BookingController extends Controller
 
     public function cancel(Request $request, Booking $booking, BookingPaymentService $payments): JsonResponse
     {
-        abort_unless($booking->user()->is($request->user()), 403);
+        if (! $this->canAccessBooking($request, $booking, allowAdmin: false)) {
+            throw new AccessDeniedHttpException('You are not allowed to cancel this booking.');
+        }
 
         $booking->load(['event', 'items.ticketType']);
 
@@ -174,7 +178,9 @@ class BookingController extends Controller
 
     public function ticket(Request $request, Booking $booking): Response
     {
-        abort_unless($booking->user()->is($request->user()) || $request->user()->role === User::ROLE_ADMIN, 403);
+        if (! $this->canAccessBooking($request, $booking)) {
+            throw new AccessDeniedHttpException('You are not allowed to download this ticket.');
+        }
 
         if ($booking->payment_status !== Booking::PAYMENT_PAID) {
             throw new ConflictHttpException('Tickets are available after payment is completed.');
@@ -253,12 +259,13 @@ class BookingController extends Controller
         ]);
     }
 
-    private function canAccessBooking(Request $request, Booking $booking): bool
+    private function canAccessBooking(Request $request, Booking $booking, bool $allowAdmin = true): bool
     {
         $user = $request->user();
 
         return $user !== null
-            && ($booking->user()->is($user) || $user->role === User::ROLE_ADMIN);
+            && ((string) $booking->user_id === (string) $user->getKey()
+                || ($allowAdmin && $user->role === User::ROLE_ADMIN));
     }
 
     private function ensureSnapTransaction(
