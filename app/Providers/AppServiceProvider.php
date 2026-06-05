@@ -2,12 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\Passkey;
 use App\Models\PersonalAccessToken;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Passkeys\Passkeys;
 use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
@@ -35,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Date::use(CarbonImmutable::class);
 
+        Passkeys::usePasskeyModel(Passkey::class);
         Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
 
         DB::prohibitDestructiveCommands(

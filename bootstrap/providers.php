@@ -2,10 +2,12 @@
 
 use App\Providers\AppServiceProvider;
 use App\Providers\FortifyServiceProvider;
+use MongoDB\Laravel\Auth\PasswordResetServiceProvider;
+use MongoDB\Laravel\MongoDBServiceProvider;
 
 return [
     AppServiceProvider::class,
     FortifyServiceProvider::class,
-    MongoDB\Laravel\MongoDBServiceProvider::class,
-    MongoDB\Laravel\Auth\PasswordResetServiceProvider::class,
+    MongoDBServiceProvider::class,
+    PasswordResetServiceProvider::class,
 ];
