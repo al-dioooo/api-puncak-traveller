@@ -8,7 +8,6 @@ use App\Models\Event;
 use App\Models\Place;
 use App\Models\TicketType;
 use App\Models\User;
-use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -16,8 +15,6 @@ use Tests\TestCase;
 
 class MidtransPaymentNotificationTest extends TestCase
 {
-    use LazilyRefreshDatabase;
-
     public function test_midtrans_settlement_notification_marks_booking_paid(): void
     {
         [$booking, $ticketType] = $this->createPendingMidtransBooking();

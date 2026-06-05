@@ -7,15 +7,12 @@ use App\Models\Event;
 use App\Models\User;
 use Database\Seeders\AdminUserSeeder;
 use Database\Seeders\DatabaseSeeder;
-use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminSeederTest extends TestCase
 {
-    use LazilyRefreshDatabase;
-
     public function test_admin_user_seeder_is_idempotent(): void
     {
         $this->seed(AdminUserSeeder::class);

@@ -6,14 +6,11 @@ use App\Models\Booking;
 use App\Models\Event;
 use App\Models\TicketType;
 use App\Models\User;
-use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AdminDashboardEndpointTest extends TestCase
 {
-    use LazilyRefreshDatabase;
-
     public function test_admin_dashboard_returns_dynamic_summary_payload(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);

@@ -3,15 +3,12 @@
 namespace Tests\Feature\Api\V1;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class GoogleOAuthExchangeTest extends TestCase
 {
-    use LazilyRefreshDatabase;
-
     public function test_google_exchange_code_can_only_be_used_once(): void
     {
         $user = User::factory()->create([

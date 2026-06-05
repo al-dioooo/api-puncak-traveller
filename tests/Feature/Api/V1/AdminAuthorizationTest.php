@@ -3,14 +3,11 @@
 namespace Tests\Feature\Api\V1;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AdminAuthorizationTest extends TestCase
 {
-    use LazilyRefreshDatabase;
-
     public function test_member_cannot_create_admin_event(): void
     {
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_MEMBER]));

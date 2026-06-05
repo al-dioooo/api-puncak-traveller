@@ -3,13 +3,10 @@
 namespace Tests\Feature\Api\V1;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
 class AuthEndpointTest extends TestCase
 {
-    use LazilyRefreshDatabase;
-
     public function test_api_email_login_returns_user_session_and_token(): void
     {
         $user = User::factory()->create([

@@ -7,15 +7,12 @@ use App\Models\Booking;
 use App\Models\Event;
 use App\Models\TicketType;
 use App\Models\User;
-use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AdminBookingEndpointTest extends TestCase
 {
-    use LazilyRefreshDatabase;
-
     public function test_admin_sees_all_bookings_while_member_sees_only_their_own(): void
     {
         [$member, $otherMember] = [User::factory()->create(), User::factory()->create()];

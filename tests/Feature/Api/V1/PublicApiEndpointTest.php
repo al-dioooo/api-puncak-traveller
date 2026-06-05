@@ -9,14 +9,11 @@ use App\Models\Gallery;
 use App\Models\Place;
 use App\Models\TicketType;
 use App\Models\User;
-use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PublicApiEndpointTest extends TestCase
 {
-    use LazilyRefreshDatabase;
-
     public function test_events_index_matches_frontend_contract(): void
     {
         $event = $this->createEventWithTicket([

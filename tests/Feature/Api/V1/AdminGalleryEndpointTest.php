@@ -4,7 +4,6 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\Gallery;
 use App\Models\User;
-use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -12,8 +11,6 @@ use Tests\TestCase;
 
 class AdminGalleryEndpointTest extends TestCase
 {
-    use LazilyRefreshDatabase;
-
     public function test_admin_can_upload_and_bulk_delete_gallery_photos_by_public_slug(): void
     {
         Storage::fake('public');

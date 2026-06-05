@@ -6,7 +6,6 @@ use App\Models\Booking;
 use App\Models\Event;
 use App\Models\TicketType;
 use App\Models\User;
-use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -14,8 +13,6 @@ use Tests\TestCase;
 
 class AdminEventEndpointTest extends TestCase
 {
-    use LazilyRefreshDatabase;
-
     public function test_admin_can_create_update_and_delete_event_without_bookings(): void
     {
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
