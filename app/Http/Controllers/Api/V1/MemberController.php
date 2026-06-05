@@ -21,7 +21,6 @@ class MemberController extends Controller
 
         return UserResource::collection(
             User::query()
-                ->withCount('bookings')
                 ->orderBy('created_at', 'desc')
                 ->paginate($perPage)
         );
