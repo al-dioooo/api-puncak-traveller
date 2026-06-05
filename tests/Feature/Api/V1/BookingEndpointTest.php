@@ -8,15 +8,12 @@ use App\Models\Event;
 use App\Models\Place;
 use App\Models\TicketType;
 use App\Models\User;
-use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class BookingEndpointTest extends TestCase
 {
-    use LazilyRefreshDatabase;
-
     public function test_authenticated_user_can_create_pending_booking_from_frontend_payload(): void
     {
         $user = User::factory()->create(['name' => 'Alex Puncak', 'email' => 'alex@example.com']);
@@ -54,6 +51,48 @@ class BookingEndpointTest extends TestCase
             && collect($request['item_details'])->contains(fn (array $item): bool => $item['id'] === 'booking-fee'));
     }
 
+    public function test_authenticated_user_can_create_multi_tier_booking_with_resource_ticket_ids(): void
+    {
+        $user = User::factory()->create(['name' => 'Alex Puncak', 'email' => 'alex@example.com']);
+        Sanctum::actingAs($user);
+        [$event, $publicTicketType] = $this->createBookableEvent();
+        $fallbackTicketType = TicketType::factory()->for($event)->create([
+            'public_id' => null,
+            'name' => '5K Family Fun',
+            'description' => 'Untimed - open to all ages',
+            'price' => 95000,
+            'quantity' => 10,
+            'sold' => 0,
+        ]);
+        $this->fakeMidtransSnap();
+
+        $response = $this->postJson(route('api.v1.bookings.store'), [
+            'eventSlug' => $event->slug,
+            'termsAccepted' => true,
+            'items' => [
+                ['ticketTierId' => $publicTicketType->public_id, 'quantity' => 1],
+                ['ticketTierId' => (string) $fallbackTicketType->id, 'quantity' => 2],
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.status', Booking::STATUS_PENDING)
+            ->assertJsonPath('data.paymentStatus', Booking::PAYMENT_PENDING)
+            ->assertJsonPath('data.subtotal', 375000)
+            ->assertJsonPath('data.bookingFee', 5000)
+            ->assertJsonPath('data.total', 380000)
+            ->assertJsonPath('data.snapToken', 'snap-token')
+            ->assertJsonCount(2, 'data.items');
+
+        $this->assertSame(1, $publicTicketType->refresh()->sold);
+        $this->assertSame(2, $fallbackTicketType->refresh()->sold);
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://app.sandbox.midtrans.com/snap/v1/transactions'
+            && $request['transaction_details']['gross_amount'] === 380000
+            && collect($request['item_details'])->contains(fn (array $item): bool => $item['id'] === (string) $fallbackTicketType->id));
+    }
+
     public function test_booking_conflicts_and_auth_failures_return_stable_json(): void
     {
         [$event, $ticketType] = $this->createBookableEvent(['quantity' => 0]);
@@ -79,6 +118,33 @@ class BookingEndpointTest extends TestCase
             ...$payload,
             'eventSlug' => 'not-real',
         ])->assertNotFound();
+    }
+
+    public function test_booking_rejects_ticket_identifier_from_another_event(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+        [$event] = $this->createBookableEvent();
+        [$otherEvent] = $this->createBookableEvent([], [
+            'slug' => 'other-event',
+            'title' => 'Other Event',
+        ]);
+        $otherTicketType = TicketType::factory()->for($otherEvent)->create([
+            'public_id' => null,
+            'quantity' => 5,
+            'sold' => 0,
+        ]);
+
+        $this->postJson(route('api.v1.bookings.store'), [
+            'eventSlug' => $event->slug,
+            'termsAccepted' => true,
+            'items' => [
+                ['ticketTierId' => (string) $otherTicketType->id, 'quantity' => 1],
+            ],
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('message', 'One or more ticket tiers are not available for this event.');
+
+        $this->assertSame(0, $otherTicketType->refresh()->sold);
     }
 
     public function test_account_booking_listing_returns_frontend_cards(): void
