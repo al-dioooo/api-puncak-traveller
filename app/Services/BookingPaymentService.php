@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\TicketType;
-use Illuminate\Support\Facades\DB;
 
 class BookingPaymentService
 {
@@ -28,16 +27,14 @@ class BookingPaymentService
      */
     public function markPending(Booking $booking, array $payload = []): Booking
     {
-        return DB::transaction(function () use ($booking, $payload): Booking {
-            $booking = $this->lockBooking($booking);
-            $booking->fill([
-                ...$this->midtransFields($payload),
-                'status' => Booking::STATUS_PENDING,
-                'payment_status' => Booking::PAYMENT_PENDING,
-            ])->save();
+        $booking = $this->freshBooking($booking);
+        $booking->fill([
+            ...$this->midtransFields($payload),
+            'status' => Booking::STATUS_PENDING,
+            'payment_status' => Booking::PAYMENT_PENDING,
+        ])->save();
 
-            return $booking->refresh();
-        });
+        return $booking->refresh();
     }
 
     /**
@@ -45,19 +42,17 @@ class BookingPaymentService
      */
     public function markPaid(Booking $booking, array $payload = []): Booking
     {
-        return DB::transaction(function () use ($booking, $payload): Booking {
-            $booking = $this->lockBooking($booking);
-            $booking->fill([
-                ...$this->midtransFields($payload),
-                'status' => Booking::STATUS_CONFIRMED,
-                'payment_status' => Booking::PAYMENT_PAID,
-                'paid_at' => $booking->paid_at ?? now(),
-                'payment_failed_at' => null,
-                'cancellation_reason' => null,
-            ])->save();
+        $booking = $this->freshBooking($booking);
+        $booking->fill([
+            ...$this->midtransFields($payload),
+            'status' => Booking::STATUS_CONFIRMED,
+            'payment_status' => Booking::PAYMENT_PAID,
+            'paid_at' => $booking->paid_at ?? now(),
+            'payment_failed_at' => null,
+            'cancellation_reason' => null,
+        ])->save();
 
-            return $booking->refresh();
-        });
+        return $booking->refresh();
     }
 
     /**
@@ -65,21 +60,19 @@ class BookingPaymentService
      */
     public function markFailed(Booking $booking, string $reason, array $payload = []): Booking
     {
-        return DB::transaction(function () use ($booking, $reason, $payload): Booking {
-            $booking = $this->lockBooking($booking);
-            $this->releaseStock($booking);
+        $booking = $this->freshBooking($booking);
+        $this->releaseStock($booking);
 
-            $booking->fill([
-                ...$this->midtransFields($payload),
-                'status' => Booking::STATUS_CANCELLED,
-                'payment_status' => Booking::PAYMENT_FAILED,
-                'cancelled_at' => $booking->cancelled_at ?? now(),
-                'payment_failed_at' => $booking->payment_failed_at ?? now(),
-                'cancellation_reason' => $reason,
-            ])->save();
+        $booking->fill([
+            ...$this->midtransFields($payload),
+            'status' => Booking::STATUS_CANCELLED,
+            'payment_status' => Booking::PAYMENT_FAILED,
+            'cancelled_at' => $booking->cancelled_at ?? now(),
+            'payment_failed_at' => $booking->payment_failed_at ?? now(),
+            'cancellation_reason' => $reason,
+        ])->save();
 
-            return $booking->refresh();
-        });
+        return $booking->refresh();
     }
 
     /**
@@ -87,20 +80,18 @@ class BookingPaymentService
      */
     public function markRefunded(Booking $booking, array $payload = [], string $reason = 'Refunded.'): Booking
     {
-        return DB::transaction(function () use ($booking, $payload, $reason): Booking {
-            $booking = $this->lockBooking($booking);
-            $this->releaseStock($booking);
+        $booking = $this->freshBooking($booking);
+        $this->releaseStock($booking);
 
-            $booking->fill([
-                ...$this->midtransFields($payload),
-                'status' => Booking::STATUS_REFUNDED,
-                'payment_status' => Booking::PAYMENT_REFUNDED,
-                'cancelled_at' => $booking->cancelled_at ?? now(),
-                'cancellation_reason' => $reason,
-            ])->save();
+        $booking->fill([
+            ...$this->midtransFields($payload),
+            'status' => Booking::STATUS_REFUNDED,
+            'payment_status' => Booking::PAYMENT_REFUNDED,
+            'cancelled_at' => $booking->cancelled_at ?? now(),
+            'cancellation_reason' => $reason,
+        ])->save();
 
-            return $booking->refresh();
-        });
+        return $booking->refresh();
     }
 
     public function releaseFailedBooking(Booking $booking, string $reason): Booking
@@ -110,32 +101,29 @@ class BookingPaymentService
 
     public function cancelBooking(Booking $booking, string $reason): Booking
     {
-        return DB::transaction(function () use ($booking, $reason): Booking {
-            $booking = $this->lockBooking($booking);
-            $this->releaseStock($booking);
+        $booking = $this->freshBooking($booking);
+        $this->releaseStock($booking);
 
-            $booking->fill([
-                'status' => Booking::STATUS_CANCELLED,
-                'payment_status' => $booking->payment_status === Booking::PAYMENT_PENDING
-                    ? Booking::PAYMENT_FAILED
-                    : $booking->payment_status,
-                'cancelled_at' => $booking->cancelled_at ?? now(),
-                'payment_failed_at' => $booking->payment_status === Booking::PAYMENT_PENDING
-                    ? ($booking->payment_failed_at ?? now())
-                    : $booking->payment_failed_at,
-                'cancellation_reason' => $reason,
-            ])->save();
+        $booking->fill([
+            'status' => Booking::STATUS_CANCELLED,
+            'payment_status' => $booking->payment_status === Booking::PAYMENT_PENDING
+                ? Booking::PAYMENT_FAILED
+                : $booking->payment_status,
+            'cancelled_at' => $booking->cancelled_at ?? now(),
+            'payment_failed_at' => $booking->payment_status === Booking::PAYMENT_PENDING
+                ? ($booking->payment_failed_at ?? now())
+                : $booking->payment_failed_at,
+            'cancellation_reason' => $reason,
+        ])->save();
 
-            return $booking->refresh();
-        });
+        return $booking->refresh();
     }
 
-    private function lockBooking(Booking $booking): Booking
+    private function freshBooking(Booking $booking): Booking
     {
         return Booking::query()
             ->whereKey($booking->getKey())
             ->with(['items.ticketType'])
-            ->lockForUpdate()
             ->firstOrFail();
     }
 

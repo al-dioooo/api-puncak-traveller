@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -127,19 +126,15 @@ class EventController extends Controller
 
     public function store(UpsertEventRequest $request): JsonResponse
     {
-        $event = DB::transaction(function () use ($request): Event {
-            $event = Event::query()->create([
-                ...$request->eventAttributes(),
-                ...$this->coverImageAttributes($request),
-                'community_id' => $this->defaultCommunity()->id,
-                'public_id' => $this->uniquePublicId('evt'),
-                'status_label' => null,
-            ]);
+        $event = Event::query()->create([
+            ...$request->eventAttributes(),
+            ...$this->coverImageAttributes($request),
+            'community_id' => $this->defaultCommunity()->id,
+            'public_id' => $this->uniquePublicId('evt'),
+            'status_label' => null,
+        ]);
 
-            $this->syncTicketTypes($event, $request->ticketPayload());
-
-            return $event;
-        });
+        $this->syncTicketTypes($event, $request->ticketPayload());
 
         return (new EventResource($event->load(['community', 'place', 'ticketTypes'])))
             ->response()
@@ -148,15 +143,11 @@ class EventController extends Controller
 
     public function update(UpsertEventRequest $request, Event $event): EventResource
     {
-        $event = DB::transaction(function () use ($request, $event): Event {
-            $event->update([
-                ...$request->eventAttributes(),
-                ...$this->coverImageAttributes($request, $event),
-            ]);
-            $this->syncTicketTypes($event, $request->ticketPayload());
-
-            return $event;
-        });
+        $event->update([
+            ...$request->eventAttributes(),
+            ...$this->coverImageAttributes($request, $event),
+        ]);
+        $this->syncTicketTypes($event, $request->ticketPayload());
 
         return new EventResource($event->load(['community', 'place', 'ticketTypes']));
     }
